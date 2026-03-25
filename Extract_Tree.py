@@ -27,7 +27,7 @@ def extract_knowledge_tree(pdf_path, output_json="knowledge_tree.json"):
         
         for line in lines:
             # ==================================================
-            # 🧹 超级清洗器：专门对付 PDF 各种疑难杂症
+            # 超级清洗器：专门对付 PDF 各种疑难杂症
             # ==================================================
             # 1. 干掉那个奇怪的  符号以及它的变体
             line = line.replace('', '').replace('\uf001', '').replace('\uf002', '')
