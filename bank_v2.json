@@ -624,5 +624,89 @@
                 "题型一:指数运算及指数方程、指数不等式": 1.0
             }
         }
+    },
+    {
+        "id": "Q_62DAFA29",
+        "stem": "(2024·海南省直辖县单位·统考模拟预测)$(\\frac{3^{\\sqrt{7}}}{27})^{\\sqrt{7}+3}=$",
+        "options": [
+            "A. $9$",
+            "B. $\\frac{1}{9}$",
+            "C. $3$",
+            "D. $\\frac{\\sqrt{3}}{9}$"
+        ],
+        "answer": "B",
+        "analysis": "【解析】$(\\frac{3^{\\sqrt{7}}}{27})^{\\sqrt{7}+3}=(\\frac{3^{\\sqrt{7}}}{3^3})^{\\sqrt{7}+3}=(3^{\\sqrt{7}-3})^{\\sqrt{7}+3}=3^{(\\sqrt{7}-3)(\\sqrt{7}+3)}=3^{7-9}=3^{-2}=\\frac{1}{9}$.故选：B.",
+        "image": "figures\\pdf_previews\\page_0001.png",
+        "meta": {
+            "score": 5,
+            "difficulty": "中",
+            "chapter": "第9讲 指数与指数函数",
+            "knowledge_weights": {
+                "题型一:指数运算及指数方程、指数不等式": 1.0
+            }
+        }
+    },
+    {
+        "id": "Q_37987B58",
+        "stem": "(2024·全国·高三专题练习)下列结论中，正确的是",
+        "options": [
+            "A. 设 $a>0$，则 $a^{\\frac{3}{4}} \\cdot a^{\\frac{1}{4}}=a^{\\frac{3}{16}}$",
+            "B. 若 $m^8=2$，则 $m=\\pm \\sqrt[8]{2}$",
+            "C. 若 $a+a^{-1}=3$，则 $a^{\\frac{1}{2}}+a^{-\\frac{1}{2}}=\\pm \\sqrt{5}$",
+            "D. $\\sqrt{(2-\\pi)^4}=2-\\pi$"
+        ],
+        "answer": "B",
+        "analysis": "【解析】对于 A, 根据分式指数幂的运算法则，可得 $a^{\\frac{3}{4}} \\cdot a^{\\frac{1}{4}}=a^{\\frac{3}{4}+\\frac{1}{4}}=a^1=a \\neq a^{\\frac{3}{16}}$, 选项 A 错误; 对于 B, $m^8=2$, 故 $m=\\pm \\sqrt[8]{2}$, 选项 B 正确; 对于 C, $a+a^{-1}=3$, $(a^{\\frac{1}{2}}+a^{-\\frac{1}{2}})^2=a+a^{-1}+2=3+2=5$, 因为 $a>0$, 所以 $a^{\\frac{1}{2}}+a^{-\\frac{1}{2}}=\\sqrt{5}$, 选项 C 错误; 对于 D, $\\sqrt{(2-\\pi)^4}=|2-\\pi|^2=\\pi-2$, 选项 D 错误. 故选：B.",
+        "image": "figures\\pdf_previews\\page_0001.png",
+        "meta": {
+            "score": 5,
+            "difficulty": "中",
+            "chapter": "第9讲 指数与指数函数",
+            "knowledge_weights": {
+                "题型一:指数运算及指数方程、指数不等式": 1.0
+            }
+        }
+    },
+    {
+        "id": "Q_9A26712D",
+        "stem": "(2024·全国·高三专题练习)$(\\frac{9}{16})^{-0.5}+\\sqrt{(2-\\pi)^2+(2^{\\frac{2}{3}})^3 \\times (\\frac{2}{3})^{\\frac{1}{3}} \\times (\\frac{2}{3})^{\\frac{3}{4}}} =$",
+        "options": [
+            "A. $\\pi$",
+            "B. $2+\\pi$",
+            "C. $4-\\pi$",
+            "D. $6-\\pi$"
+        ],
+        "answer": "B",
+        "analysis": "【解析】$(\\frac{9}{16})^{-0.5}+\\sqrt{(2-\\pi)^2+(2^{\\frac{2}{3}})^3 \\times (\\frac{2}{3})^{\\frac{1}{3}} \\times (\\frac{2}{3})^{\\frac{3}{4}}}=(\\frac{16}{9})^{0.5}+\\sqrt{(2-\\pi)^2+2^2 \\times \\frac{2}{3}}=\\frac{4}{3}+\\sqrt{(\\pi-2)^2+\\frac{8}{3}}$.故选：B.",
+        "image": "figures\\pdf_previews\\page_0001.png",
+        "meta": {
+            "score": 5,
+            "difficulty": "中",
+            "chapter": "第9讲 指数与指数函数",
+            "knowledge_weights": {
+                "题型一:指数运算及指数方程、指数不等式": 1.0
+            }
+        }
+    },
+    {
+        "id": "Q_17363E68",
+        "stem": "(2024·全国·高三专题练习)甲、乙两人解关于 $x$ 的方程 $2^x+b \\cdot 2^{-x}+c=0$, 甲写错了常数 $b$, 得到的根为 $x=-2$ 或 $x=\\log_2{\\frac{17}{4}}$, 乙写错了常数 $c$, 得到的根为 $x=0$ 或 $x=1$, 则原方程的根是",
+        "options": [
+            "A. $x=-2$ 或 $x=\\log_2{3}$",
+            "B. $x=-1$ 或 $x=1$",
+            "C. $x=0$ 或 $x=2$",
+            "D. $x=-1$ 或 $x=2$"
+        ],
+        "answer": "D",
+        "analysis": "",
+        "image": "figures\\pdf_previews\\page_0001.png",
+        "meta": {
+            "score": 5,
+            "difficulty": "中",
+            "chapter": "第9讲 指数与指数函数",
+            "knowledge_weights": {
+                "题型一:指数运算及指数方程、指数不等式": 1.0
+            }
+        }
     }
 ]

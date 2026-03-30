@@ -7,6 +7,8 @@ import threading
 import re
 import time
 import base64
+import subprocess
+import uuid as _uuid
 
 # ==========================================
 # 🚀 1. 代理与 API Key 集中配置区 (在这里写死)
@@ -26,6 +28,7 @@ import google.generativeai as genai
 from openai import OpenAI
 import fitz  
 import PIL.Image
+import PIL.ImageTk
 import io
 
 class BatchAuditor:
@@ -41,6 +44,12 @@ class BatchAuditor:
         
         self.question_queue = []
         self.current_q = None
+        self.preview_img_tk = None
+        self.preview_dir = os.path.join("figures", "pdf_previews")
+        os.makedirs(self.preview_dir, exist_ok=True)
+        self.latex_preview_dir = os.path.join("figures", "latex_previews")
+        os.makedirs(self.latex_preview_dir, exist_ok=True)
+        self.latex_preview_img_tk = None
         self.create_ui()
 
     def load_tree(self):
@@ -89,6 +98,42 @@ class BatchAuditor:
         self.topic_var = tk.StringVar()
         self.cb_topic = ttk.Combobox(frame_meta, textvariable=self.topic_var, width=35)
         self.cb_topic.grid(row=1, column=3, sticky="w", padx=5)
+
+        # ================= 1.5 生成PDF效果预览区 =================
+        frame_latex_preview = tk.LabelFrame(
+            self.root,
+            text="生成PDF效果预览（单题排版）",
+            font=("Microsoft YaHei", 10, "bold"),
+            padx=10,
+            pady=5
+        )
+        frame_latex_preview.pack(fill="both", expand=False, padx=10, pady=5)
+
+        self.preview_teacher_var = tk.BooleanVar(value=False)
+        tk.Checkbutton(
+            frame_latex_preview,
+            text="教师解析版（显示【答案】【解析】）",
+            variable=self.preview_teacher_var
+        ).pack(anchor="w")
+
+        btns = tk.Frame(frame_latex_preview)
+        btns.pack(fill="x", pady=5)
+        self.btn_preview_latex = tk.Button(
+            btns,
+            text="🔍 预览当前题在生成PDF中的样子",
+            command=self.preview_current_question_in_pdf,
+            bg="#607D8B",
+            fg="white",
+            font=("Microsoft YaHei", 10, "bold"),
+            relief="flat"
+        )
+        self.btn_preview_latex.pack(side="left", padx=(0, 10))
+
+        self.lbl_latex_status = tk.Label(frame_latex_preview, text="状态：未预览", font=("Microsoft YaHei", 10, "bold"), fg="#555555")
+        self.lbl_latex_status.pack(anchor="w")
+
+        self.latex_preview_label = tk.Label(frame_latex_preview, bg="white", anchor="center")
+        self.latex_preview_label.pack(fill="both", expand=False, padx=5, pady=5)
 
         # ================= 2. 审核编辑区 =================
         frame_content = tk.LabelFrame(self.root, text="第二步：AI 识别内容核对 (可直接修改)", font=("Microsoft YaHei", 10, "bold"), padx=10, pady=5)
@@ -160,6 +205,14 @@ class BatchAuditor:
                 page = doc.load_page(page_num)
                 pix = page.get_pixmap(dpi=150)
                 img_bytes = pix.tobytes("png")
+                page_image = PIL.Image.open(io.BytesIO(img_bytes))
+                preview_path = os.path.join(self.preview_dir, f"page_{page_num+1:04d}.png")
+                try:
+                    if not os.path.exists(preview_path):
+                        page_image.save(preview_path)
+                except Exception:
+                    # 预览失败不影响主流程：只会导致界面里看不到截图
+                    preview_path = None
                 
                 result_text = ""
                 
@@ -168,8 +221,7 @@ class BatchAuditor:
                     genai.configure(api_key=GEMINI_API_KEY)
                     engine_name = 'gemini-2.5-pro' if "Pro" in selected_model else 'gemini-2.5-flash'
                     model = genai.GenerativeModel(engine_name)
-                    img = PIL.Image.open(io.BytesIO(img_bytes))
-                    response = model.generate_content([prompt, img])
+                    response = model.generate_content([prompt, page_image])
                     result_text = response.text.strip()
                     time.sleep(2) # 保护免费配额
                     
@@ -195,6 +247,11 @@ class BatchAuditor:
                 try:
                     q_list = json.loads(result_text)
                     if isinstance(q_list, list) and len(q_list) > 0:
+                        # 内部为图片渲染准备：为每个题目挂上该页截图，便于在生成PDF中 includegraphics
+                        for q in q_list:
+                            if isinstance(q, dict):
+                                if preview_path:
+                                    q.setdefault("image_preview", preview_path)
                         self.question_queue.extend(q_list)
                         total_extracted += len(q_list)
                         self.root.after(0, self.update_queue_ui)
@@ -230,12 +287,166 @@ class BatchAuditor:
             if i < len(options): var.set(options[i])
         self.ans_var.set(self.current_q.get("answer", ""))
         self.text_analysis.insert(tk.END, self.current_q.get("analysis", ""))
+        self.clear_latex_preview()
 
     def clear_form(self):
         self.text_stem.delete("1.0", tk.END)
         for var in self.opt_vars: var.set("")
         self.text_analysis.delete("1.0", tk.END)
         self.ans_var.set("")
+        self.clear_latex_preview()
+
+    def clear_latex_preview(self):
+        self.lbl_latex_status.config(text="状态：未预览")
+        self.latex_preview_label.config(image="")
+        self.latex_preview_img_tk = None
+
+    def get_question_from_ui(self):
+        """从编辑区读取当前题内容，用于生成预览/入库。"""
+        stem = self.text_stem.get("1.0", tk.END).strip()
+        options = [v.get().strip() for v in self.opt_vars if v.get().strip()]
+        answer = self.ans_var.get().strip()
+        analysis = self.text_analysis.get("1.0", tk.END).strip()
+        # 图片预览依赖 q['image']，这里用批处理阶段挂的该页截图（image_preview）
+        img_path = self.current_q.get("image_preview") if isinstance(self.current_q, dict) else None
+        return {
+            "stem": stem,
+            "options": options,
+            "answer": answer,
+            "analysis": analysis,
+            "image": img_path,
+        }
+
+    def build_single_question_latex(self, q, show_answers=False):
+        """构造单题 LaTeX，用于预览生成PDF的排版。"""
+        diff_val = {"易": "0.8", "中": "0.6", "难": "0.3"}.get(self.diff_var.get(), self.diff_var.get())
+        diff_tag = f"\\textbf{{[{diff_val}]}}" if diff_val else ""
+
+        # 图片：只要存在就 includegraphics
+        img_block = ""
+        img_path = q.get("image")
+        if img_path and os.path.exists(img_path) and "占位符" not in str(img_path):
+            img_abs = os.path.abspath(img_path).replace("\\", "/")
+            img_block = f"\\begin{{center}}\\includegraphics[width=0.45\\textwidth]{{{img_abs}}}\\end{{center}}\n\n"
+
+        # 选项排版列数：复刻 math_app.py 的策略
+        options = q.get("options") or []
+        opts_block = ""
+        if options:
+            clean_opts = []
+            max_len = 0
+            for opt in options:
+                cleaned = re.sub(r'^[A-D](?:\.|、|\\s+)?', '', opt).strip()
+                clean_opts.append(cleaned)
+                max_len = max(max_len, len(cleaned))
+            cols = 1 if max_len > 35 else (2 if max_len > 12 else 4)
+            opts_block = (
+                f"\\begin{{tasks}}({cols})\n"
+                + "".join([f"    \\task {o}\n" for o in clean_opts])
+                + "\\end{tasks}\n\n"
+            )
+
+        # 解析/答案
+        ans_block = ""
+        if show_answers:
+            ans_text = re.sub(r'^【?(答案|答)】?[:：\\s]*', '', q.get("answer", "")).strip()
+            ana_text = re.sub(r'^【?(解析|解|分析)】?[:：\\s]*', '', q.get("analysis", "")).strip()
+            ans_block = (
+                f"\\par\\noindent\\textcolor{{red}}{{\\textbf{{【答案】}} {ans_text}}}\n"
+                f"\\par\\noindent\\textcolor{{blue}}{{\\textbf{{【解析】}} {ana_text}}}\n\n"
+            )
+
+        latex_code = f"""\\documentclass[11pt,a4paper]{{article}}
+\\usepackage[margin=1in]{{geometry}}
+\\usepackage{{amsmath}}\\usepackage{{amssymb}}\\usepackage{{ctex}}
+\\usepackage{{tasks}}\\usepackage{{xcolor}}\\usepackage{{graphicx}}
+\\settasks{{label=\\Alph*., label-width=1.5em, item-indent=2em}}
+\\begin{{document}}
+\\vspace{{-0.5cm}}
+\\section*{{单题预览}}
+
+{diff_tag} {q.get('stem', '')}
+
+{img_block}{opts_block}{ans_block}
+\\end{{document}}
+"""
+        return latex_code
+
+    def preview_current_question_in_pdf(self):
+        """编译单题 LaTeX 并把渲染结果展示出来。"""
+        q = self.get_question_from_ui()
+        if not q["stem"] and not q["options"]:
+            messagebox.showwarning("预览失败", "题干为空，先填写后再预览。")
+            return
+
+        self.btn_preview_latex.config(state="disabled")
+        self.lbl_latex_status.config(text="状态：正在编译预览中...")
+        show_answers = bool(self.preview_teacher_var.get())
+
+        threading.Thread(
+            target=self._render_latex_preview_thread,
+            args=(q, show_answers),
+            daemon=True
+        ).start()
+
+    def _render_latex_preview_thread(self, q, show_answers):
+        try:
+            latex_code = self.build_single_question_latex(q, show_answers=show_answers)
+            run_id = _uuid.uuid4().hex[:10].upper()
+            work_dir = os.path.join(self.latex_preview_dir, f"run_{run_id}")
+            os.makedirs(work_dir, exist_ok=True)
+
+            tex_file = os.path.join(work_dir, "preview.tex")
+            with open(tex_file, "w", encoding="utf-8") as f:
+                f.write(latex_code)
+
+            # 编译：避免长时间卡住，失败会抛异常
+            result = subprocess.run(
+                ["xelatex", "-interaction=nonstopmode", "preview.tex"],
+                cwd=work_dir,
+                capture_output=True,
+                text=True,
+                encoding="utf-8",
+                errors="ignore",
+                timeout=60
+            )
+            if result.returncode != 0:
+                raise RuntimeError("xelatex 编译失败，请检查 LaTeX 环境。")
+
+            pdf_path = os.path.join(work_dir, "preview.pdf")
+            if not os.path.exists(pdf_path):
+                raise RuntimeError("未生成 preview.pdf。")
+
+            # 用 fitz 渲染为图片显示
+            doc = fitz.open(pdf_path)
+            page = doc.load_page(0)
+            pix = page.get_pixmap(dpi=160)
+            png_path = os.path.join(work_dir, "preview.png")
+            pix.save(png_path)
+            doc.close()
+
+            # 回到主线程更新 UI
+            def _ui_update():
+                try:
+                    img = PIL.Image.open(png_path)
+                    img.thumbnail((820, 260), PIL.Image.LANCZOS)
+                    self.latex_preview_img_tk = PIL.ImageTk.PhotoImage(img)
+                    self.latex_preview_label.config(image=self.latex_preview_img_tk)
+                    self.lbl_latex_status.config(text="状态：预览完成")
+                except Exception:
+                    self.lbl_latex_status.config(text="状态：预览渲染失败")
+                finally:
+                    self.btn_preview_latex.config(state="normal")
+
+            self.root.after(0, _ui_update)
+
+        except Exception as e:
+            err = str(e)
+            def _ui_err():
+                self.lbl_latex_status.config(text="状态：预览失败")
+                self.btn_preview_latex.config(state="normal")
+                messagebox.showerror("预览失败", f"发生错误：\n{err}")
+            self.root.after(0, _ui_err)
 
     def discard_question(self):
         if self.current_q is None: return
@@ -253,7 +464,7 @@ class BatchAuditor:
         new_q = {
             "id": f"Q_{uuid.uuid4().hex[:8].upper()}", "stem": stem, "options": options,
             "answer": self.ans_var.get(), "analysis": self.text_analysis.get("1.0", tk.END).strip(),
-            "image": "[待补图片占位符]",
+            "image": self.current_q.get("image_preview", "[待补图片占位符]"),
             "meta": { "score": 5, "difficulty": self.diff_var.get(), "chapter": chap, "knowledge_weights": { topic: 1.0 } }
         }
         db = []
