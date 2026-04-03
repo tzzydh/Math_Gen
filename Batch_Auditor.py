@@ -11,17 +11,18 @@ import subprocess
 import uuid as _uuid
 
 # ==========================================
-# 🚀 1. 代理与 API Key 集中配置区 (在这里写死)
+# 🚀 1. 代理与 API Key 集中配置区
 # ==========================================
-# 挂载代理 (确保能连通外网)
-os.environ['http_proxy'] = 'http://127.0.0.1:33210'
-os.environ['https_proxy'] = 'http://127.0.0.1:33210'
-#os.environ['all_proxy'] = 'socks5://127.0.0.1:33211'
+proxy_url = 'http://127.0.0.1:6789'
+os.environ['http_proxy'] = proxy_url
+os.environ['https_proxy'] = proxy_url
+os.environ['HTTP_PROXY'] = proxy_url
+os.environ['HTTPS_PROXY'] = proxy_url
+os.environ['grpc_proxy'] = proxy_url
+os.environ['GRPC_PROXY'] = proxy_url
 
-# 在这里填入您的秘钥（写死后，界面上就不需要输入了）
 GEMINI_API_KEY = "AIzaSyC7VcVn8l3D7Oo9W_bkIktFAwjXZs_9l4g"
 OPENAI_API_KEY = "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"
-# 如果您使用的是国内中转站的 GPT 接口，请修改下方地址，否则保持默认
 OPENAI_BASE_URL = "https://api.openai.com/v1" 
 
 import google.generativeai as genai
@@ -34,7 +35,7 @@ import io
 class BatchAuditor:
     def __init__(self, root):
         self.root = root
-        self.root.title("高三数学题库 - V6.0 双引擎批处理流水线")
+        self.root.title("高三数学题库 - V6.3 官方稳定提取版")
         self.root.geometry("900x950")
         
         self.bank_file = "bank_v2.json"
@@ -44,7 +45,6 @@ class BatchAuditor:
         
         self.question_queue = []
         self.current_q = None
-        self.preview_img_tk = None
         self.preview_dir = os.path.join("figures", "pdf_previews")
         os.makedirs(self.preview_dir, exist_ok=True)
         self.latex_preview_dir = os.path.join("figures", "latex_previews")
@@ -59,7 +59,6 @@ class BatchAuditor:
         return {}
 
     def create_ui(self):
-        # ================= 0. 引擎控制台 =================
         frame_top = tk.LabelFrame(self.root, text="核心大模型引擎路由", font=("Microsoft YaHei", 10, "bold"), fg="blue", padx=10, pady=5)
         frame_top.pack(fill="x", padx=10, pady=5)
         
@@ -80,7 +79,6 @@ class BatchAuditor:
         self.lbl_status = tk.Label(frame_top, text="待审: 0 题", font=("Microsoft YaHei", 10, "bold"), fg="red")
         self.lbl_status.pack(side="right", padx=20)
 
-        # ================= 1. 分类打标区 =================
         frame_meta = tk.LabelFrame(self.root, text="第一步：人工打标", font=("Microsoft YaHei", 10, "bold"), padx=10, pady=5)
         frame_meta.pack(fill="x", padx=10, pady=5)
         
@@ -99,34 +97,15 @@ class BatchAuditor:
         self.cb_topic = ttk.Combobox(frame_meta, textvariable=self.topic_var, width=35)
         self.cb_topic.grid(row=1, column=3, sticky="w", padx=5)
 
-        # ================= 1.5 生成PDF效果预览区 =================
-        frame_latex_preview = tk.LabelFrame(
-            self.root,
-            text="生成PDF效果预览（单题排版）",
-            font=("Microsoft YaHei", 10, "bold"),
-            padx=10,
-            pady=5
-        )
+        frame_latex_preview = tk.LabelFrame(self.root, text="生成PDF效果预览（单题排版）", font=("Microsoft YaHei", 10, "bold"), padx=10, pady=5)
         frame_latex_preview.pack(fill="both", expand=False, padx=10, pady=5)
 
         self.preview_teacher_var = tk.BooleanVar(value=False)
-        tk.Checkbutton(
-            frame_latex_preview,
-            text="教师解析版（显示【答案】【解析】）",
-            variable=self.preview_teacher_var
-        ).pack(anchor="w")
+        tk.Checkbutton(frame_latex_preview, text="教师解析版（显示【答案】【解析】）", variable=self.preview_teacher_var).pack(anchor="w")
 
         btns = tk.Frame(frame_latex_preview)
         btns.pack(fill="x", pady=5)
-        self.btn_preview_latex = tk.Button(
-            btns,
-            text="🔍 预览当前题在生成PDF中的样子",
-            command=self.preview_current_question_in_pdf,
-            bg="#607D8B",
-            fg="white",
-            font=("Microsoft YaHei", 10, "bold"),
-            relief="flat"
-        )
+        self.btn_preview_latex = tk.Button(btns, text="🔍 预览当前题在生成PDF中的样子", command=self.preview_current_question_in_pdf, bg="#607D8B", fg="white", font=("Microsoft YaHei", 10, "bold"), relief="flat")
         self.btn_preview_latex.pack(side="left", padx=(0, 10))
 
         self.lbl_latex_status = tk.Label(frame_latex_preview, text="状态：未预览", font=("Microsoft YaHei", 10, "bold"), fg="#555555")
@@ -135,7 +114,6 @@ class BatchAuditor:
         self.latex_preview_label = tk.Label(frame_latex_preview, bg="white", anchor="center")
         self.latex_preview_label.pack(fill="both", expand=False, padx=5, pady=5)
 
-        # ================= 2. 审核编辑区 =================
         frame_content = tk.LabelFrame(self.root, text="第二步：AI 识别内容核对 (可直接修改)", font=("Microsoft YaHei", 10, "bold"), padx=10, pady=5)
         frame_content.pack(fill="both", expand=True, padx=10, pady=5)
         
@@ -160,7 +138,6 @@ class BatchAuditor:
         self.text_analysis = tk.Text(frame_content, height=6, font=("Consolas", 10))
         self.text_analysis.pack(fill="x", pady=2)
 
-        # ================= 3. 动作操作区 =================
         btn_frame = tk.Frame(self.root)
         btn_frame.pack(fill="x", padx=10, pady=15)
         tk.Button(btn_frame, text="🗑️ 丢弃此题", command=self.discard_question, bg="#F44336", fg="white", font=("Microsoft YaHei", 11, "bold"), width=15).pack(side="left")
@@ -181,93 +158,120 @@ class BatchAuditor:
 
     def process_pdf(self, pdf_path):
         try:
+            from concurrent.futures import ThreadPoolExecutor, as_completed
+
             selected_model = self.model_var.get()
             doc = fitz.open(pdf_path)
-            total_extracted = 0
-            
-            prompt = """
-            你是一个资深的中国高中数学教研专家。请精准识别这张 PDF 页面图片上的**所有数学题目及其对应的答案和解析**。
-            要求：
-            1. 每一道题提取为一个独立的 JSON 对象，按顺序放入数组中：[{"stem":"...", "options":["..."], "answer":"...", "analysis":"..."}]
-            2. 智能切分：
-               - 题干 (stem)：题目主体部分。
-               - 选项 (options)：如果是选择题，提取A/B/C/D四个选项。如果是填空/解答题，返回 []。
-               - 答案 (answer)：寻找“【答案】”、“故选”、“填”等关键字，提取最终结论。
-               - 解析 (analysis)：寻找“【解析】”、“【解题思路】”、“【总结】”等关键字，提取完整的推理过程。
-            3. 如果图片中某道题只有题干没有解析，则 answer 和 analysis 留空字符串 ""。
-            4. 所有数学公式必须使用 LaTeX 格式，用 $ 包裹。
-            5. 只输出纯 JSON 字符串，绝不要输出 ```json 或任何 markdown 标记。
-            """
+            total_pages = len(doc)
 
-            for page_num in range(len(doc)):
-                self.root.after(0, lambda p=page_num+1, t=len(doc): self.btn_load_pdf.config(text=f"扫页中 {p}/{t}..."))
-                
+            pages_data = []
+            for page_num in range(total_pages):
                 page = doc.load_page(page_num)
-                pix = page.get_pixmap(dpi=150)
+                pix = page.get_pixmap(dpi=120)
                 img_bytes = pix.tobytes("png")
-                page_image = PIL.Image.open(io.BytesIO(img_bytes))
                 preview_path = os.path.join(self.preview_dir, f"page_{page_num+1:04d}.png")
                 try:
                     if not os.path.exists(preview_path):
-                        page_image.save(preview_path)
+                        PIL.Image.open(io.BytesIO(img_bytes)).save(preview_path)
                 except Exception:
-                    # 预览失败不影响主流程：只会导致界面里看不到截图
                     preview_path = None
-                
-                result_text = ""
-                
-                # 路由选择器：决定把图片发给谁
-                if "Gemini" in selected_model:
-                    genai.configure(api_key=GEMINI_API_KEY)
-                    engine_name = 'gemini-2.5-pro' if "Pro" in selected_model else 'gemini-2.5-flash'
-                    model = genai.GenerativeModel(engine_name)
-                    response = model.generate_content([prompt, page_image])
-                    result_text = response.text.strip()
-                    time.sleep(2) # 保护免费配额
-                    
-                elif "GPT" in selected_model:
-                    client = OpenAI(api_key=OPENAI_API_KEY, base_url=OPENAI_BASE_URL)
-                    engine_name = 'gpt-4o' if "gpt-4o" in selected_model.lower() and "mini" not in selected_model.lower() else 'gpt-4o-mini'
-                    base64_image = base64.b64encode(img_bytes).decode('utf-8')
-                    response = client.chat.completions.create(
-                        model=engine_name,
-                        messages=[
-                            {"role": "user", "content": [
-                                {"type": "text", "text": prompt},
-                                {"type": "image_url", "image_url": {"url": f"data:image/png;base64,{base64_image}"}}
-                            ]}
-                        ]
-                    )
-                    result_text = response.choices[0].message.content.strip()
+                pages_data.append((page_num, img_bytes, preview_path))
+            doc.close()
 
-                # 清洗结果
-                result_text = re.sub(r'^```json\s*', '', result_text, flags=re.IGNORECASE)
-                result_text = re.sub(r'\s*```$', '', result_text)
-                
-                try:
-                    q_list = json.loads(result_text)
-                    if isinstance(q_list, list) and len(q_list) > 0:
-                        # 内部为图片渲染准备：为每个题目挂上该页截图，便于在生成PDF中 includegraphics
-                        for q in q_list:
-                            if isinstance(q, dict):
-                                if preview_path:
+            # 【核心修改 1】：提示词更改为必须输出特定的 JSON 对象格式
+            prompt = """
+            你是一个资深的中国高中数学教研专家。请精准识别这张 PDF 页面图片上的所有数学题目。
+            要求：
+            1. 必须输出一个严格的 JSON 对象，包含一个 "questions" 键，其值为题目数组。格式必须如下：
+            {"questions": [
+                {"stem":"题干主体", "options":["选项A","选项B","选项C","选项D"], "answer":"正确答案", "analysis":"完整解析"}
+            ]}
+            2. 如果是解答题，options 数组请保留为空 []。
+            3. 如果这页没有数学题，请输出 {"questions": []}。
+            4. 所有数学公式必须使用 LaTeX 格式，用 $ 包裹。
+            """
+
+            genai.configure(api_key=GEMINI_API_KEY)
+            openai_client = OpenAI(api_key=OPENAI_API_KEY, base_url=OPENAI_BASE_URL)
+
+            def process_one_page(args):
+                page_num, img_bytes, preview_path = args
+                max_retries = 3
+                for attempt in range(max_retries):
+                    try:
+                        page_image = PIL.Image.open(io.BytesIO(img_bytes))
+                        q_list = []
+
+                        if "Gemini" in selected_model:
+                            engine_name = 'gemini-2.5-pro' if "Pro" in selected_model else 'gemini-2.5-flash'
+                            # 【核心修改 2】：直接调用官方底层的 JSON 模式
+                            model = genai.GenerativeModel(engine_name, generation_config={"response_mime_type": "application/json"})
+                            response = model.generate_content([prompt, page_image])
+                            data = json.loads(response.text)
+                            q_list = data.get("questions", [])
+                            
+                            # 保护免费版限流，每处理一页强行休息 4 秒
+                            if "Flash" in selected_model:
+                                time.sleep(4)
+
+                        elif "GPT" in selected_model:
+                            engine_name = 'gpt-4o' if "mini" not in selected_model.lower() else 'gpt-4o-mini'
+                            base64_image = base64.b64encode(img_bytes).decode('utf-8')
+                            response = openai_client.chat.completions.create(
+                                model=engine_name,
+                                response_format={ "type": "json_object" }, # 开启 GPT 官方 JSON 模式
+                                messages=[{"role": "user", "content": [
+                                    {"type": "text", "text": prompt},
+                                    {"type": "image_url", "image_url": {"url": f"data:image/png;base64,{base64_image}"}}
+                                ]}]
+                            )
+                            data = json.loads(response.choices[0].message.content)
+                            q_list = data.get("questions", [])
+
+                        # 挂载预览图
+                        if isinstance(q_list, list):
+                            for q in q_list:
+                                if isinstance(q, dict) and preview_path:
                                     q.setdefault("image_preview", preview_path)
+                            return page_num, q_list
+                        return page_num, []
+
+                    except Exception as e:
+                        err_str = str(e).lower()
+                        print(f"页 {page_num+1} 报错: {err_str}") # 在控制台打印真实错误
+                        if "429" in err_str or "quota" in err_str or "rate" in err_str:
+                            time.sleep(5 * (attempt + 1)) # 被限流就多等一会儿
+                        else:
+                            return page_num, []
+                return page_num, []
+
+            # 【核心修改 3】：Gemini 免费版强制改为单线程串行（太快会被谷歌拉黑），GPT 允许 3 线程并发
+            max_workers = 1 if "Gemini" in selected_model else 3
+            total_extracted = 0
+            completed = 0
+            results_map = {}
+
+            with ThreadPoolExecutor(max_workers=max_workers) as executor:
+                future_to_page = {executor.submit(process_one_page, p): p[0] for p in pages_data}
+                for future in as_completed(future_to_page):
+                    page_num, q_list = future.result()
+                    results_map[page_num] = q_list
+                    completed += 1
+                    self.root.after(0, lambda c=completed, t=total_pages: self.btn_load_pdf.config(text=f"提取中 {c}/{t} 页..."))
+
+                    if q_list:
                         self.question_queue.extend(q_list)
                         total_extracted += len(q_list)
                         self.root.after(0, self.update_queue_ui)
-                except Exception as json_e:
-                    print(f"解析 JSON 失败: {json_e}")
-                    continue
-                    
-            self.root.after(0, lambda: messagebox.showinfo("完成", f"共提取 {total_extracted} 题，已入列队！"))
-            
+
+            self.root.after(0, lambda: messagebox.showinfo("完成", f"大功告成！共完美提取 {total_extracted} 题，已入列队！"))
+
         except Exception as e:
             error_msg = str(e)
-            self.root.after(0, lambda msg=error_msg: messagebox.showerror("崩溃", f"发生错误：\n{msg}"))
+            self.root.after(0, lambda msg=error_msg: messagebox.showerror("崩溃", f"发生致命错误：\n{msg}"))
         finally:
             self.root.after(0, lambda: self.btn_load_pdf.config(text="📂 丢入 PDF 开启流水线", state="normal"))
 
-    # ... 以下 ui 刷新逻辑保持不变 ...
     def update_queue_ui(self):
         self.lbl_status.config(text=f"待审: {len(self.question_queue)} 题")
         if self.current_q is None and len(self.question_queue) > 0: self.load_next_question()
@@ -302,41 +306,35 @@ class BatchAuditor:
         self.latex_preview_img_tk = None
 
     def get_question_from_ui(self):
-        """从编辑区读取当前题内容，用于生成预览/入库。"""
         stem = self.text_stem.get("1.0", tk.END).strip()
         options = [v.get().strip() for v in self.opt_vars if v.get().strip()]
         answer = self.ans_var.get().strip()
         analysis = self.text_analysis.get("1.0", tk.END).strip()
-        # 图片预览依赖 q['image']，这里用批处理阶段挂的该页截图（image_preview）
-        img_path = self.current_q.get("image_preview") if isinstance(self.current_q, dict) else None
         return {
             "stem": stem,
             "options": options,
             "answer": answer,
             "analysis": analysis,
-            "image": img_path,
+            "image": "[待补图片占位符]", 
         }
 
     def build_single_question_latex(self, q, show_answers=False):
-        """构造单题 LaTeX，用于预览生成PDF的排版。"""
         diff_val = {"易": "0.8", "中": "0.6", "难": "0.3"}.get(self.diff_var.get(), self.diff_var.get())
         diff_tag = f"\\textbf{{[{diff_val}]}}" if diff_val else ""
 
-        # 图片：只要存在就 includegraphics
         img_block = ""
         img_path = q.get("image")
         if img_path and os.path.exists(img_path) and "占位符" not in str(img_path):
             img_abs = os.path.abspath(img_path).replace("\\", "/")
             img_block = f"\\begin{{center}}\\includegraphics[width=0.45\\textwidth]{{{img_abs}}}\\end{{center}}\n\n"
 
-        # 选项排版列数：复刻 math_app.py 的策略
         options = q.get("options") or []
         opts_block = ""
         if options:
             clean_opts = []
             max_len = 0
             for opt in options:
-                cleaned = re.sub(r'^[A-D](?:\.|、|\\s+)?', '', opt).strip()
+                cleaned = re.sub(r'^[A-D](?:\.|、|\s+)?', '', opt).strip()
                 clean_opts.append(cleaned)
                 max_len = max(max_len, len(cleaned))
             cols = 1 if max_len > 35 else (2 if max_len > 12 else 4)
@@ -346,25 +344,20 @@ class BatchAuditor:
                 + "\\end{tasks}\n\n"
             )
 
-        # 解析/答案
         ans_block = ""
         if show_answers:
-            ans_text = re.sub(r'^【?(答案|答)】?[:：\\s]*', '', q.get("answer", "")).strip()
-            ana_text = re.sub(r'^【?(解析|解|分析)】?[:：\\s]*', '', q.get("analysis", "")).strip()
+            ans_text = re.sub(r'^【?(答案|答)】?[:：\s]*', '', q.get("answer", "")).strip()
+            ana_text = re.sub(r'^【?(解析|解|分析)】?[:：\s]*', '', q.get("analysis", "")).strip()
             ans_block = (
-                f"\\par\\noindent\\textcolor{{red}}{{\\textbf{{【答案】}} {ans_text}}}\n"
+                f"\\vspace{{0.2cm}}\\par\\noindent\\textcolor{{red}}{{\\textbf{{【答案】}} {ans_text}}}\n"
                 f"\\par\\noindent\\textcolor{{blue}}{{\\textbf{{【解析】}} {ana_text}}}\n\n"
             )
 
-        latex_code = f"""\\documentclass[11pt,a4paper]{{article}}
-\\usepackage[margin=1in]{{geometry}}
+        latex_code = f"""\\documentclass[varwidth=16cm, border=2mm]{{standalone}}
 \\usepackage{{amsmath}}\\usepackage{{amssymb}}\\usepackage{{ctex}}
 \\usepackage{{tasks}}\\usepackage{{xcolor}}\\usepackage{{graphicx}}
 \\settasks{{label=\\Alph*., label-width=1.5em, item-indent=2em}}
 \\begin{{document}}
-\\vspace{{-0.5cm}}
-\\section*{{单题预览}}
-
 {diff_tag} {q.get('stem', '')}
 
 {img_block}{opts_block}{ans_block}
@@ -373,7 +366,6 @@ class BatchAuditor:
         return latex_code
 
     def preview_current_question_in_pdf(self):
-        """编译单题 LaTeX 并把渲染结果展示出来。"""
         q = self.get_question_from_ui()
         if not q["stem"] and not q["options"]:
             messagebox.showwarning("预览失败", "题干为空，先填写后再预览。")
@@ -400,24 +392,16 @@ class BatchAuditor:
             with open(tex_file, "w", encoding="utf-8") as f:
                 f.write(latex_code)
 
-            # 编译：避免长时间卡住，失败会抛异常
             result = subprocess.run(
                 ["xelatex", "-interaction=nonstopmode", "preview.tex"],
-                cwd=work_dir,
-                capture_output=True,
-                text=True,
-                encoding="utf-8",
-                errors="ignore",
-                timeout=60
+                cwd=work_dir, capture_output=True, text=True, encoding="utf-8", errors="ignore", timeout=60
             )
             if result.returncode != 0:
                 raise RuntimeError("xelatex 编译失败，请检查 LaTeX 环境。")
 
             pdf_path = os.path.join(work_dir, "preview.pdf")
-            if not os.path.exists(pdf_path):
-                raise RuntimeError("未生成 preview.pdf。")
+            if not os.path.exists(pdf_path): raise RuntimeError("未生成 preview.pdf。")
 
-            # 用 fitz 渲染为图片显示
             doc = fitz.open(pdf_path)
             page = doc.load_page(0)
             pix = page.get_pixmap(dpi=160)
@@ -425,11 +409,10 @@ class BatchAuditor:
             pix.save(png_path)
             doc.close()
 
-            # 回到主线程更新 UI
             def _ui_update():
                 try:
                     img = PIL.Image.open(png_path)
-                    img.thumbnail((820, 260), PIL.Image.LANCZOS)
+                    img.thumbnail((820, 450), PIL.Image.LANCZOS)
                     self.latex_preview_img_tk = PIL.ImageTk.PhotoImage(img)
                     self.latex_preview_label.config(image=self.latex_preview_img_tk)
                     self.lbl_latex_status.config(text="状态：预览完成")
@@ -464,7 +447,7 @@ class BatchAuditor:
         new_q = {
             "id": f"Q_{uuid.uuid4().hex[:8].upper()}", "stem": stem, "options": options,
             "answer": self.ans_var.get(), "analysis": self.text_analysis.get("1.0", tk.END).strip(),
-            "image": self.current_q.get("image_preview", "[待补图片占位符]"),
+            "image": "[待补图片占位符]",
             "meta": { "score": 5, "difficulty": self.diff_var.get(), "chapter": chap, "knowledge_weights": { topic: 1.0 } }
         }
         db = []
