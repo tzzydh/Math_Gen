@@ -1,0 +1,32 @@
+\documentclass[varwidth=16cm, border=2mm]{standalone}
+\usepackage{amsmath}\usepackage{amssymb}\usepackage{ctex}
+\usepackage{tasks}\usepackage{xcolor}\usepackage{graphicx}
+\settasks{label=\Alph*., label-width=1.5em, item-indent=2em}
+\begin{document}
+\textbf{[0.6]} 已知双曲线 $C: \frac{x^2}{3} - y^2 = 1$, 若直线 $l$ 的倾斜角为 $60^\circ$, 且与双曲线 $C$ 的右支交于 $M, N$ 两点, 与 $x$ 轴交于点 $P$, 若 $|MN| = \frac{\sqrt{3}}{2}$, 则点 $P$ 的坐标为
+
+\vspace{0.2cm}\par\noindent{\color{red}\textbf{【答案】} $(\sqrt{3}, 0)$}
+\par\noindent{\color{blue}\textbf{【解析】} 双曲线双曲线 $C: \frac{x^2}{3} - y^2 = 1$ 的渐近线方程为 $y = \frac{\sqrt{3}}{3}x$,
+
+而直线 $l$ 的倾斜角为 $60^\circ$, 则直线 $l$ 的斜率为 $\sqrt{3}$, 可设直线 $l$ 的方程为 $y = \sqrt{3}x + m$,
+
+与双曲线方程 $\frac{x^2}{3} - y^2 = 1$ 联立, 化简可得 $8x^2 + 6\sqrt{3}mx + 3m^2 + 3 = 0$,
+
+由 $\Delta = 108m^2 - 32(3m^2 + 3) = 12m^2 - 96 > 0$, 得 $m > 2\sqrt{2}$ 或 $m < -2\sqrt{2}$.
+
+设 $M(x_1, y_1)$, $N(x_2, y_2)$, 则 $x_1 + x_2 = -\frac{3\sqrt{3}m}{4} > 0$, $x_1 \cdot x_2 = \frac{3m^2 + 3}{8} > 0$,
+
+则 $m < 0$, 所以 $m < -2\sqrt{2}$.
+
+$|MN| = \sqrt{1 + (\sqrt{3})^2}|x_1 - x_2| = 2\sqrt{(x_1 + x_2)^2 - 4x_1 \cdot x_2} = 2\sqrt{\frac{27m^2}{16} - \frac{3m^2 + 3}{2}}$
+
+$= \frac{\sqrt{3m^2 - 24}}{2} = \frac{\sqrt{3}}{2}$, 解得: $m = 3$(舍去) 或 $m = -3$,
+
+所以直线 $l$ 的方程为 $y = \sqrt{3}x - 3$, 令 $y = 0$, 可得 $x = \sqrt{3}$.
+
+故点 $P$ 的坐标为 $(\sqrt{3}, 0)$.
+
+故答案为: $(\sqrt{3}, 0)$.}
+
+
+\end{document}

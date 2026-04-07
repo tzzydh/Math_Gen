@@ -44,9 +44,9 @@ except ImportError:
 class BatchAuditor:
     def __init__(self, root):
         self.root = root
-        # 🌟 标志性标题，确保代码更新成功
-        self.root.title("高三数学题库 - V7.3 智能自愈防崩版")
-        self.root.geometry("900x980")
+        # 🌟 标志性标题：V7.4 智能双模版
+        self.root.title("高三数学题库 - V7.4 智能双模提取版")
+        self.root.geometry("950x980")
         
         self.bank_file = "bank_v2.json"
         self.tree_file = "knowledge_tree.json"
@@ -80,7 +80,6 @@ class BatchAuditor:
                 return json.load(f)
         return {}
 
-    # 🔥 核心更新：去除导致崩溃的多余正则，加入智能容错
     def safe_parse_json(self, text):
         text = text.strip()
         text = re.sub(r'^```json\s*', '', text, flags=re.IGNORECASE)
@@ -90,11 +89,10 @@ class BatchAuditor:
         try:
             return json.loads(text)
         except json.JSONDecodeError:
-            # 如果 AI 偶尔犯傻单转义了 LaTeX（比如写了 \pi），触发终极容错机制
             text = text.replace('\\', '\\\\')
-            text = text.replace('\\\\"', '\\"')  # 恢复双引号转义
-            text = text.replace('\\\\n', '\\n')  # 恢复换行符
-            text = text.replace('\\\\t', '\\t')  # 恢复制表符
+            text = text.replace('\\\\"', '\\"')  
+            text = text.replace('\\\\n', '\\n')  
+            text = text.replace('\\\\t', '\\t')  
             try:
                 return json.loads(text)
             except Exception as e:
@@ -121,13 +119,17 @@ class BatchAuditor:
         self.lbl_status = tk.Label(frame_top, text="待审: 0 题", font=("Microsoft YaHei", 10, "bold"), fg="red")
         self.lbl_status.pack(side="right", padx=20)
 
+        # 🌟 V7.4 核心升级：双模识别按钮
         frame_clipboard = tk.LabelFrame(self.root, text="⚡ 快捷扩展：截图识别与贴图 (优先使用)", font=("Microsoft YaHei", 10, "bold"), fg="#E91E63", padx=10, pady=5)
         frame_clipboard.pack(fill="x", padx=10, pady=5)
 
-        self.btn_clip_rec = tk.Button(frame_clipboard, text="📋 从剪贴板识别题目 (AI自动算答案)", command=self.start_clipboard_recognize_thread, bg="#2196F3", fg="white", font=("Microsoft YaHei", 9, "bold"))
-        self.btn_clip_rec.pack(side="left", padx=5)
+        self.btn_clip_solve = tk.Button(frame_clipboard, text="🤖 识别题目 (AI算答案)", command=lambda: self.start_clipboard_recognize_thread(auto_solve=True), bg="#2196F3", fg="white", font=("Microsoft YaHei", 9, "bold"))
+        self.btn_clip_solve.pack(side="left", padx=5)
 
-        self.btn_clip_img = tk.Button(frame_clipboard, text="🖼️ 截图作为本题配图", command=self.attach_image_from_clipboard, bg="#9C27B0", fg="white", font=("Microsoft YaHei", 9, "bold"))
+        self.btn_clip_extract = tk.Button(frame_clipboard, text="📋 识别整题 (仅提取图片解答)", command=lambda: self.start_clipboard_recognize_thread(auto_solve=False), bg="#FF5722", fg="white", font=("Microsoft YaHei", 9, "bold"))
+        self.btn_clip_extract.pack(side="left", padx=5)
+
+        self.btn_clip_img = tk.Button(frame_clipboard, text="🖼️ 截图作本题配图", command=self.attach_image_from_clipboard, bg="#9C27B0", fg="white", font=("Microsoft YaHei", 9, "bold"))
         self.btn_clip_img.pack(side="left", padx=5)
 
         self.lbl_attached_img = tk.Label(frame_clipboard, text="当前配图: 无", fg="#888")
@@ -225,16 +227,23 @@ class BatchAuditor:
         except Exception as e:
             messagebox.showerror("错误", f"提取配图失败：\n{e}")
 
-    def start_clipboard_recognize_thread(self):
+    # 🌟 修改：支持双模式参数 auto_solve
+    def start_clipboard_recognize_thread(self, auto_solve=True):
         img = ImageGrab.grabclipboard()
         if img is None:
-            messagebox.showwarning("提示", "剪贴板中没有图片！请先对准一道数学题截图，再点击此按钮。")
+            messagebox.showwarning("提示", "剪贴板中没有图片！请先对准数学题目截图。")
             return
         
-        self.btn_clip_rec.config(text="🤖 AI 疯狂算题中...", state="disabled")
-        threading.Thread(target=self._process_clipboard_image, args=(img,), daemon=True).start()
+        if auto_solve:
+            self.btn_clip_solve.config(text="🤖 AI 疯狂算题中...", state="disabled")
+            self.btn_clip_extract.config(state="disabled")
+        else:
+            self.btn_clip_extract.config(text="📋 精准OCR提取中...", state="disabled")
+            self.btn_clip_solve.config(state="disabled")
+            
+        threading.Thread(target=self._process_clipboard_image, args=(img, auto_solve), daemon=True).start()
 
-    def _process_clipboard_image(self, img):
+    def _process_clipboard_image(self, img, auto_solve):
         try:
             if isinstance(img, list): img = PIL.Image.open(img[0])
             
@@ -243,14 +252,19 @@ class BatchAuditor:
             img_bytes = buffered.getvalue()
             base64_image = base64.b64encode(img_bytes).decode('utf-8')
 
-            # 🔥 加入严厉警告，防止 AI 生成非法的 JSON 转义符
-            prompt = """
-            你是一个资深的中国高中数学教研专家。请精准识别这张图片上的数学题目。
+            # 🌟 核心分流：根据模式选择不同的提示词
+            if auto_solve:
+                action_instruction = "3. 💥【核心指令】：如果图片中只有题目，你必须亲自作为专家解答这道题！将你的计算结果填入 'answer'，详细推导过程填入 'analysis'。"
+            else:
+                action_instruction = "3. 💥【核心指令】：图片中已经包含了完整的题目、【答案】和【解析】。你现在的角色是一个无情的 OCR 提取器。请把图片原有的答案原封不动提取到 'answer'，原有的解析提取到 'analysis'。绝对不要自己去重新计算或删减原图中的解析内容！原样照搬！"
+
+            prompt = f"""
+            你是一个资深的中国高中数学教研专家。请精准识别这张图片上的数学内容。
             要求：
-            1. 必须输出严格的 JSON 对象：{"questions": [{"stem":"题干", "options":["A","B","C","D"], "answer":"正确答案", "analysis":"完整解析"}]}
-            2. 如果是解答题，options 数组保留为空 []。
-            3. 💥【核心指令】：如果图片中只有题目而没有答案和解析，你必须亲自解答这道题！将答案填入 "answer"，详细推导过程填入 "analysis"。
-            4. 💥【格式警告】：公式必须使用 LaTeX 格式用 $ 包裹。特别注意：在 JSON 字符串中，所有的 LaTeX 反斜杠必须双重转义，例如必须写成 \\frac 而不能是 \frac，必须写成 \\pi 而不能是 \pi！
+            1. 必须输出严格的 JSON 对象：{{"questions": [{{"stem":"题干", "options":["A","B","C","D"], "answer":"正确答案", "analysis":"完整解析"}}]}}
+            2. 如果是解答题或填空题，options 数组保留为空 []。
+            {action_instruction}
+            4. 💥【格式警告】：公式必须使用 LaTeX 格式用 $ 包裹。特别注意：在 JSON 字符串中，所有的 LaTeX 反斜杠必须双重转义，例如写成 \\frac 而不能是 \frac！
             """
 
             selected_model = self.model_var.get()
@@ -283,14 +297,18 @@ class BatchAuditor:
             if q_list:
                 self.question_queue.insert(0, q_list[0])
                 self.root.after(0, self.update_queue_ui)
-                self.root.after(0, lambda: messagebox.showinfo("算题完毕", "AI 已经成功提取并给出了它的解答，请核对！"))
+                msg = "AI 已经算完答案并填好了！" if auto_solve else "已将原图的【答案】和【解析】完美提取并转化排版！"
+                self.root.after(0, lambda: messagebox.showinfo("提取完毕", msg))
             else:
                 self.root.after(0, lambda: messagebox.showwarning("失败", "AI 未能识别出题目。"))
 
         except Exception as e:
             self.root.after(0, lambda msg=str(e): messagebox.showerror("崩溃", f"发生错误：\n{msg}"))
         finally:
-            self.root.after(0, lambda: self.btn_clip_rec.config(text="📋 从剪贴板识别题目 (AI自动算答案)", state="normal"))
+            def reset_ui():
+                self.btn_clip_solve.config(text="🤖 识别题目 (AI算答案)", state="normal")
+                self.btn_clip_extract.config(text="📋 识别整题 (仅提取图片解答)", state="normal")
+            self.root.after(0, reset_ui)
 
     def update_topics(self, event=None):
         chap = self.chap_var.get()
@@ -467,6 +485,10 @@ class BatchAuditor:
         diff_val = {"易": "0.8", "中": "0.6", "难": "0.3"}.get(self.diff_var.get(), self.diff_var.get())
         diff_tag = f"\\textbf{{[{diff_val}]}}" if diff_val else ""
 
+        stem_text = q.get('stem', '')
+        stem_text = re.sub(r'_{2,}', r'\\underline{\\hspace{1.5cm}}', stem_text)
+        stem_text = stem_text.replace(r'\n', '\n\n') 
+
         img_block = ""
         img_path = q.get("image")
         if img_path and os.path.exists(img_path):
@@ -491,11 +513,22 @@ class BatchAuditor:
 
         ans_block = ""
         if show_answers:
-            ans_text = re.sub(r'^【?(答案|答)】?[:：\s]*', '', q.get("answer", "")).strip()
-            ana_text = re.sub(r'^【?(解析|解|分析)】?[:：\s]*', '', q.get("analysis", "")).strip()
+            raw_ans = q.get("answer", "")
+            raw_ana = q.get("analysis", "")
+
+            raw_ans = re.sub(r'_{2,}', r'\\underline{\\hspace{1cm}}', raw_ans)
+            raw_ana = re.sub(r'_{2,}', r'\\underline{\\hspace{1cm}}', raw_ana)
+            raw_ans = raw_ans.replace(r'\n', '\n\n')
+            raw_ana = raw_ana.replace(r'\n', '\n\n')
+            raw_ans = re.sub(r'\*\*(.*?)\*\*', r'\\textbf{\1}', raw_ans)
+            raw_ana = re.sub(r'\*\*(.*?)\*\*', r'\\textbf{\1}', raw_ana)
+            
+            ans_text = re.sub(r'^【?(答案|答)】?[:：\s]*', '', raw_ans).strip()
+            ana_text = re.sub(r'^【?(解析|解|分析)】?[:：\s]*', '', raw_ana).strip()
+            
             ans_block = (
-                f"\\vspace{{0.2cm}}\\par\\noindent\\textcolor{{red}}{{\\textbf{{【答案】}} {ans_text}}}\n"
-                f"\\par\\noindent\\textcolor{{blue}}{{\\textbf{{【解析】}} {ana_text}}}\n\n"
+                f"\\vspace{{0.2cm}}\\par\\noindent{{\\color{{red}}\\textbf{{【答案】}} {ans_text}}}\n"
+                f"\\par\\noindent{{\\color{{blue}}\\textbf{{【解析】}} {ana_text}}}\n\n"
             )
 
         latex_code = f"""\\documentclass[varwidth=16cm, border=2mm]{{standalone}}
@@ -503,7 +536,7 @@ class BatchAuditor:
 \\usepackage{{tasks}}\\usepackage{{xcolor}}\\usepackage{{graphicx}}
 \\settasks{{label=\\Alph*., label-width=1.5em, item-indent=2em}}
 \\begin{{document}}
-{diff_tag} {q.get('stem', '')}
+{diff_tag} {stem_text}
 
 {img_block}{opts_block}{ans_block}
 \\end{{document}}

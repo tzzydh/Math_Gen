@@ -1,0 +1,52 @@
+\documentclass[varwidth=16cm, border=2mm]{standalone}
+\usepackage{amsmath}\usepackage{amssymb}\usepackage{ctex}
+\usepackage{tasks}\usepackage{xcolor}\usepackage{graphicx}
+\settasks{label=\Alph*., label-width=1.5em, item-indent=2em}
+\begin{document}
+\textbf{[0.6]} 已知椭圆 $\frac{x^2}{9} + y^2 = 1$，过左焦点 $F$ 作倾斜角为 $\frac{\pi}{6}$ 的直线交椭圆于 $A$、$B$ 两点，则弦 $AB$ 的长为__。
+
+\vspace{0.2cm}\par\noindent\textcolor{red}{\textbf{【答案】} 2}
+\par\noindent\textcolor{blue}{\textbf{【解析】} 已知椭圆方程为 $\frac{x^2}{9} + y^2 = 1$。
+则 $a^2 = 9$， $b^2 = 1$。
+所以 $a = 3$， $b = 1$。
+椭圆的半焦距 $c = \sqrt{a^2 - b^2} = \sqrt{9 - 1} = \sqrt{8} = 2\sqrt{2}$。
+左焦点 $F$ 的坐标为 $(-c, 0) = (-2\sqrt{2}, 0)$。
+直线过左焦点 $F$ 且倾斜角为 $\theta = \frac{\pi}{6}$。
+该直线的斜率为 $k = \tan\theta = \tan(\frac{\pi}{6}) = \frac{\sqrt{3}}{3}$。
+
+方法一：使用弦长公式。
+直线的方程为 $y - 0 = \frac{\sqrt{3}}{3}(x - (-2\sqrt{2}))$，即 $y = \frac{\sqrt{3}}{3}(x + 2\sqrt{2})$。
+将直线方程代入椭圆方程：
+$\frac{x^2}{9} + (\frac{\sqrt{3}}{3}(x + 2\sqrt{2}))^2 = 1$
+$\frac{x^2}{9} + \frac{3}{9}(x + 2\sqrt{2})^2 = 1$
+$\frac{x^2}{9} + \frac{1}{3}(x^2 + 4\sqrt{2}x + 8) = 1$
+同乘以 9，得：
+$x^2 + 3(x^2 + 4\sqrt{2}x + 8) = 9$
+$x^2 + 3x^2 + 12\sqrt{2}x + 24 = 9$
+$4x^2 + 12\sqrt{2}x + 15 = 0$
+设交点 $A(x_1, y_1)$，$B(x_2, y_2)$。
+根据韦达定理，$x_1 + x_2 = -\frac{12\sqrt{2}}{4} = -3\sqrt{2}$， $x_1x_2 = \frac{15}{4}$。
+弦长 $|AB| = \sqrt{(x_2-x_1)^2 + (y_2-y_1)^2}$。
+由于 $y_2 - y_1 = k(x_2 - x_1)$，
+所以 $|AB| = \sqrt{(x_2-x_1)^2 + k^2(x_2-x_1)^2} = \sqrt{(x_2-x_1)^2(1+k^2)} = |x_2-x_1|\sqrt{1+k^2}$。
+$(x_2-x_1)^2 = (x_1+x_2)^2 - 4x_1x_2 = (-3\sqrt{2})^2 - 4(\frac{15}{4}) = (9)(2) - 15 = 18 - 15 = 3$。
+$k = \frac{\sqrt{3}}{3}$，所以 $1+k^2 = 1 + (\frac{\sqrt{3}}{3})^2 = 1 + \frac{3}{9} = 1 + \frac{1}{3} = \frac{4}{3}$。
+因此，弦长 $|AB| = \sqrt{3} \cdot \sqrt{\frac{4}{3}} = \sqrt{3} \cdot \frac{2}{\sqrt{3}} = 2$。
+
+方法二：使用椭圆焦弦公式。
+对于过焦点 $F(c, 0)$ 或 $(-c, 0)$ 的弦，其倾斜角为 $\theta$，则弦长公式为 $L = \frac{2ab^2}{a^2\sin^2\theta + b^2\cos^2\theta}$。
+已知 $a=3$, $b=1$, $\theta = \frac{\pi}{6}$。
+$\sin\theta = \sin(\frac{\pi}{6}) = \frac{1}{2}$。
+$\cos\theta = \cos(\frac{\pi}{6}) = \frac{\sqrt{3}}{2}$。
+代入公式：
+$|AB| = \frac{2(3)(1^2)}{3^2(\frac{1}{2})^2 + 1^2(\frac{\sqrt{3}}{2})^2}$
+$= \frac{6}{9(\frac{1}{4}) + 1(\frac{3}{4})}$
+$= \frac{6}{\frac{9}{4} + \frac{3}{4}}$
+$= \frac{6}{\frac{12}{4}}$
+$= \frac{6}{3}$
+$= 2$。
+
+两种方法计算结果一致，弦 $AB$ 的长为 2。}
+
+
+\end{document}

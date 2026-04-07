@@ -1,0 +1,108 @@
+\documentclass[varwidth=16cm, border=2mm]{standalone}
+\usepackage{amsmath}\usepackage{amssymb}\usepackage{ctex}
+\usepackage{tasks}\usepackage{xcolor}\usepackage{graphicx}
+\settasks{label=\Alph*., label-width=1.5em, item-indent=2em}
+\begin{document}
+\textbf{[0.6]} (2024·全国·高三对口高考)已知椭圆$\frac{x^2}{9} + y^2 = 1$，过左焦点F作倾斜角为$\frac{\pi}{6}$的直线交椭圆于A、B两点，则弦AB的长为\underline{\hspace{1.5cm}}。
+
+\vspace{0.2cm}\par\noindent{\color{red}\textbf{【答案】} 2}
+\par\noindent{\color{blue}\textbf{【解析】} 1. \textbf{确定椭圆参数和焦点坐标}
+
+椭圆方程为$\frac{x^2}{9} + y^2 = 1$，可写成$\frac{x^2}{3^2} + \frac{y^2}{1^2} = 1$。
+
+因此，$a^2 = 9 \Rightarrow a = 3$，$b^2 = 1 \Rightarrow b = 1$。
+
+半焦距 $c$ 满足 $c^2 = a^2 - b^2 = 9 - 1 = 8$，所以 $c = \sqrt{8} = 2\sqrt{2}$。
+
+椭圆的左焦点 $F$ 的坐标为 $(-c, 0) = (-2\sqrt{2}, 0)$。
+
+
+
+2. \textbf{确定直线的方程}
+
+直线过左焦点 $F(-2\sqrt{2}, 0)$，倾斜角为 $\frac{\pi}{6}$。
+
+直线的斜率 $k = \tan(\frac{\pi}{6}) = \frac{\sqrt{3}}{3}$。
+
+根据点斜式，直线的方程为 $y - 0 = \frac{\sqrt{3}}{3}(x - (-2\sqrt{2}))$。
+
+即 $y = \frac{\sqrt{3}}{3}x + \frac{2\sqrt{6}}{3}$。
+
+
+
+3. \textbf{联立方程组求交点}
+
+将直线方程代入椭圆方程$\frac{x^2}{9} + y^2 = 1$：
+
+$\frac{x^2}{9} + (\frac{\sqrt{3}}{3}x + \frac{2\sqrt{6}}{3})^2 = 1$
+
+$\frac{x^2}{9} + (\frac{3}{9}x^2 + 2 \cdot \frac{\sqrt{3}}{3}x \cdot \frac{2\sqrt{6}}{3} + \frac{4 \cdot 6}{9}) = 1$
+
+$\frac{x^2}{9} + \frac{x^2}{3} + \frac{4\sqrt{18}}{9}x + \frac{24}{9} = 1$
+
+$\frac{x^2}{9} + \frac{3x^2}{9} + \frac{4 \cdot 3\sqrt{2}}{9}x + \frac{8}{3} = 1$
+
+$\frac{4x^2}{9} + \frac{12\sqrt{2}}{9}x + \frac{8}{3} = 1$
+
+等式两边同乘以 $9$：
+
+$4x^2 + 12\sqrt{2}x + 24 = 9$
+
+$4x^2 + 12\sqrt{2}x + 15 = 0$
+
+
+
+设交点 $A(x_A, y_A)$，$B(x_B, y_B)$，则 $x_A, x_B$ 是上述二次方程的根。
+
+根据韦达定理：
+
+$x_A + x_B = -\frac{12\sqrt{2}}{4} = -3\sqrt{2}$
+
+$x_A x_B = \frac{15}{4}$
+
+
+
+4. \textbf{计算弦长AB}
+
+弦长公式为 $|AB| = \sqrt{(x_A - x_B)^2 + (y_A - y_B)^2}$。
+
+由于 $y_A = kx_A + b$ 且 $y_B = kx_B + b$，所以 $y_A - y_B = k(x_A - x_B)$。
+
+因此，弦长 $|AB| = \sqrt{(x_A - x_B)^2 + k^2(x_A - x_B)^2} = \sqrt{(1+k^2)(x_A - x_B)^2} = |x_A - x_B|\sqrt{1+k^2}$。
+
+计算 $(x_A - x_B)^2 = (x_A + x_B)^2 - 4x_A x_B = (-3\sqrt{2})^2 - 4(\frac{15}{4}) = (9 \cdot 2) - 15 = 18 - 15 = 3$。
+
+计算 $1+k^2 = 1 + (\frac{\sqrt{3}}{3})^2 = 1 + \frac{3}{9} = 1 + \frac{1}{3} = \frac{4}{3}$。
+
+所以，弦长 $|AB| = \sqrt{3} \cdot \sqrt{\frac{4}{3}} = \sqrt{3} \cdot \frac{2}{\sqrt{3}} = 2$。
+
+
+
+\textbf{方法二：使用椭圆焦弦长公式验证}
+
+椭圆的离心率 $e = \frac{c}{a} = \frac{2\sqrt{2}}{3}$。
+
+倾斜角 $\alpha = \frac{\pi}{6}$。
+
+焦弦长公式为 $L = \frac{2a(1-e^2)}{1-e^2\cos^2\alpha}$。
+
+$1-e^2 = 1 - (\frac{2\sqrt{2}}{3})^2 = 1 - \frac{8}{9} = \frac{1}{9}$。
+
+$\cos^2\alpha = \cos^2(\frac{\pi}{6}) = (\frac{\sqrt{3}}{2})^2 = \frac{3}{4}$。
+
+代入公式：
+
+$L = \frac{2 \cdot 3 \cdot (\frac{1}{9})}{1 - (\frac{8}{9}) (\frac{3}{4})}$
+
+$L = \frac{\frac{6}{9}}{1 - \frac{24}{36}}$
+
+$L = \frac{\frac{2}{3}}{1 - \frac{2}{3}}$
+
+$L = \frac{\frac{2}{3}}{\frac{1}{3}} = 2$。
+
+
+
+两种方法计算结果一致，弦AB的长为 $2$。}
+
+
+\end{document}
