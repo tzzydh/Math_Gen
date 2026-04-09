@@ -666,6 +666,6 @@ class BatchAuditor:
         self.load_next_question()
 
 if __name__ == "__main__":
-    #root = tk.Tk()
+    root = tk.Tk()
     app = BatchAuditor(root)
     root.mainloop()
