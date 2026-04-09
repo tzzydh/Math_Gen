@@ -27,8 +27,15 @@ def build_client() -> OpenAI:
     return OpenAI(api_key=api_key, base_url=settings.openai_base_url)
 
 
-client = build_client()
+client = None
 MODEL_NAME = settings.openai_model_name
+
+
+def get_client() -> OpenAI:
+    global client
+    if client is None:
+        client = build_client()
+    return client
 
 prompt = """
 你是一个资深的中国高中数学教研专家。请精准识别这张图片上的所有数学题目。
@@ -49,7 +56,7 @@ def process_page(pdf_name, page_num, img_bytes):
         try:
             base64_image = base64.b64encode(img_bytes).decode('utf-8')
 
-            response = client.chat.completions.create(
+            response = get_client().chat.completions.create(
                 model=MODEL_NAME,
                 messages=[{"role": "user", "content": [
                     {"type": "text", "text": prompt},

@@ -15,6 +15,11 @@ cp .env.example .env
 # 手动填写 .env 中的 OPENAI_API_KEY/GEMINI_API_KEY
 ```
 
+## 运行测试
+```bash
+python -m unittest discover -s tests -p "test_*.py"
+```
+
 ## 运行 API
 ```bash
 uvicorn api_server:app --reload --host 0.0.0.0 --port 8000
