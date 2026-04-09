@@ -25,6 +25,20 @@ python -m unittest discover -s tests -p "test_*.py"
 uvicorn api_server:app --reload --host 0.0.0.0 --port 8000
 ```
 
+## 一键本地可运行（推荐）
+```bash
+bash scripts/run_local.sh
+```
+这会自动：
+1) 创建虚拟环境并安装依赖；  
+2) 初始化数据库并生成 demo 账号；  
+3) 启动 API 服务。
+
+## 一键联调冒烟（服务启动后）
+```bash
+bash scripts/smoke_flow.sh
+```
+
 ### v0.2 新增接口（机构/用户）
 - `POST /v0/orgs`：创建机构
 - `GET /v0/orgs`：机构列表
