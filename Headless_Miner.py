@@ -10,6 +10,7 @@ import uuid
 import sys
 
 from core.settings import settings, require_env
+from core.openai_compat import call_openai_vision_json
 
 # ==========================================
 # 1. 核心配置区（v0.1 安全升级：改为环境变量）
@@ -56,16 +57,14 @@ def process_page(pdf_name, page_num, img_bytes):
         try:
             base64_image = base64.b64encode(img_bytes).decode('utf-8')
 
-            response = get_client().chat.completions.create(
+            image_data_url = f"data:image/png;base64,{base64_image}"
+            result_text = call_openai_vision_json(
+                client=get_client(),
                 model=MODEL_NAME,
-                messages=[{"role": "user", "content": [
-                    {"type": "text", "text": prompt},
-                    {"type": "image_url", "image_url": {"url": f"data:image/png;base64,{base64_image}"}}
-                ]}],
-                timeout=45
-            )
-
-            result_text = response.choices[0].message.content.strip()
+                prompt=prompt,
+                image_data_url=image_data_url,
+                timeout=45,
+            ).strip()
 
             import re
             result_text = re.sub(r'^```json\s*', '', result_text, flags=re.IGNORECASE)

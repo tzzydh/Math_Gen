@@ -12,6 +12,10 @@ class Settings:
     gemini_model_name: str = os.getenv("GEMINI_MODEL_NAME", "gemini-2.5-flash")
 
     proxy_url: str = os.getenv("PROXY_URL", "")
+    app_db_path: str = os.getenv("APP_DB_PATH", "data/math_gen.db")
+    admin_token: str = os.getenv("ADMIN_TOKEN", "")
+    jwt_secret: str = os.getenv("JWT_SECRET", "dev-only-change-me")
+    jwt_exp_minutes: int = int(os.getenv("JWT_EXP_MINUTES", "1440"))
 
 
 settings = Settings()

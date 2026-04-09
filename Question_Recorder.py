@@ -5,18 +5,18 @@ import os
 import uuid
 import threading
 
-os.environ['http_proxy'] = 'http://127.0.0.1:33210'
-os.environ['https_proxy'] = 'http://127.0.0.1:33210'
-os.environ['all_proxy'] = 'socks5://127.0.0.1:33211'
+from core.settings import settings
 
 import google.generativeai as genai
 import PIL.Image
-genai.configure(api_key="AIzaSyC7VcVn8l3D7Oo9W_bkIktFAwjXZs_9l4g")
 
-print("正在查询支持的视觉模型...")
-for m in genai.list_models():
-    if 'generateContent' in m.supported_generation_methods:
-        print(m.name)
+if settings.proxy_url:
+    os.environ['http_proxy'] = settings.proxy_url
+    os.environ['https_proxy'] = settings.proxy_url
+    os.environ['HTTP_PROXY'] = settings.proxy_url
+    os.environ['HTTPS_PROXY'] = settings.proxy_url
+    os.environ['grpc_proxy'] = settings.proxy_url
+    os.environ['GRPC_PROXY'] = settings.proxy_url
 
 
 class QuestionRecorder:
@@ -45,7 +45,7 @@ class QuestionRecorder:
         frame_ai.pack(fill="x", padx=10, pady=5)
         
         tk.Label(frame_ai, text="Gemini API Key:").pack(side="left")
-        self.api_key_var = tk.StringVar()
+        self.api_key_var = tk.StringVar(value=settings.gemini_api_key)
         tk.Entry(frame_ai, textvariable=self.api_key_var, width=40, show="*").pack(side="left", padx=5)
         
         self.btn_ai = tk.Button(frame_ai, text="📸 传图并呼叫 AI 自动填表", bg="#2196F3", fg="white", font=("Microsoft YaHei", 10, "bold"), command=self.run_ai_thread)
@@ -126,9 +126,9 @@ class QuestionRecorder:
         self.ans_var.set("A")
 
     def run_ai_thread(self):
-        api_key = self.api_key_var.get().strip()
+        api_key = self.api_key_var.get().strip() or settings.gemini_api_key
         if not api_key:
-            messagebox.showwarning("缺少 API Key", "请先在上方输入您的 Gemini API Key！")
+            messagebox.showwarning("缺少 API Key", "请先在上方输入 API Key，或设置环境变量 GEMINI_API_KEY！")
             return
             
         file_path = filedialog.askopenfilename(title="选择题目图片", filetypes=[("Image Files", "*.png *.jpg *.jpeg")])
