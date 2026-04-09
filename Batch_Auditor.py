@@ -10,20 +10,27 @@ import base64
 import subprocess
 import uuid as _uuid
 
+from core.settings import settings, require_env
+from core.openai_compat import call_openai_vision_json
+
 # ==========================================
 # 🚀 1. 代理与 API Key 集中配置区
 # ==========================================
-proxy_url = 'http://127.0.0.1:6789'
-os.environ['http_proxy'] = proxy_url
-os.environ['https_proxy'] = proxy_url
-os.environ['HTTP_PROXY'] = proxy_url
-os.environ['HTTPS_PROXY'] = proxy_url
-os.environ['grpc_proxy'] = proxy_url
-os.environ['GRPC_PROXY'] = proxy_url
+if settings.proxy_url:
+    os.environ['http_proxy'] = settings.proxy_url
+    os.environ['https_proxy'] = settings.proxy_url
+    os.environ['HTTP_PROXY'] = settings.proxy_url
+    os.environ['HTTPS_PROXY'] = settings.proxy_url
+    os.environ['grpc_proxy'] = settings.proxy_url
+    os.environ['GRPC_PROXY'] = settings.proxy_url
 
-GEMINI_API_KEY = "AIzaSyC7VcVn8l3D7Oo9W_bkIktFAwjXZs_9l4g"
-OPENAI_API_KEY = "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"
-OPENAI_BASE_URL = "https://api.openai.com/v1" 
+GEMINI_API_KEY = settings.gemini_api_key
+OPENAI_API_KEY = settings.openai_api_key
+OPENAI_BASE_URL = settings.openai_base_url
+if not GEMINI_API_KEY:
+    print("[警告] 未设置 GEMINI_API_KEY，Gemini 相关功能将不可用。")
+if not OPENAI_API_KEY:
+    print("[警告] 未设置 OPENAI_API_KEY，OpenAI 相关功能将不可用。")
 
 import google.generativeai as genai
 from openai import OpenAI
@@ -272,6 +279,7 @@ class BatchAuditor:
             raw_text = ""
 
             if "Gemini" in selected_model:
+                require_env("GEMINI_API_KEY")
                 genai.configure(api_key=GEMINI_API_KEY)
                 engine_name = 'gemini-2.5-pro' if "Pro" in selected_model else 'gemini-2.5-flash'
                 model = genai.GenerativeModel(engine_name, generation_config={"response_mime_type": "application/json"})
@@ -279,17 +287,16 @@ class BatchAuditor:
                 raw_text = response.text
 
             elif "GPT" in selected_model:
+                require_env("OPENAI_API_KEY")
                 openai_client = OpenAI(api_key=OPENAI_API_KEY, base_url=OPENAI_BASE_URL)
                 engine_name = 'gpt-4o' if "mini" not in selected_model.lower() else 'gpt-4o-mini'
-                response = openai_client.chat.completions.create(
+                raw_text = call_openai_vision_json(
+                    client=openai_client,
                     model=engine_name,
-                    response_format={ "type": "json_object" },
-                    messages=[{"role": "user", "content": [
-                        {"type": "text", "text": prompt},
-                        {"type": "image_url", "image_url": {"url": f"data:image/png;base64,{base64_image}"}}
-                    ]}]
+                    prompt=prompt,
+                    image_data_url=f"data:image/png;base64,{base64_image}",
+                    timeout=45,
                 )
-                raw_text = response.choices[0].message.content
 
             data = self.safe_parse_json(raw_text)
             q_list = data.get("questions", [])
@@ -339,8 +346,15 @@ class BatchAuditor:
             公式必须用 LaTeX，用 $ 包裹。特别注意：在 JSON 中所有的反斜杠必须双转义，如 \\frac。
             """
 
-            genai.configure(api_key=GEMINI_API_KEY)
-            openai_client = OpenAI(api_key=OPENAI_API_KEY, base_url=OPENAI_BASE_URL)
+            gemini_client_enabled = "Gemini" in selected_model
+            gpt_client_enabled = "GPT" in selected_model
+            openai_client = None
+            if gemini_client_enabled:
+                require_env("GEMINI_API_KEY")
+                genai.configure(api_key=GEMINI_API_KEY)
+            if gpt_client_enabled:
+                require_env("OPENAI_API_KEY")
+                openai_client = OpenAI(api_key=OPENAI_API_KEY, base_url=OPENAI_BASE_URL)
 
             def process_one_page(args):
                 page_num, img_bytes, _ = args
@@ -359,15 +373,13 @@ class BatchAuditor:
                         elif "GPT" in selected_model:
                             engine_name = 'gpt-4o' if "mini" not in selected_model.lower() else 'gpt-4o-mini'
                             base64_img = base64.b64encode(img_bytes).decode('utf-8')
-                            response = openai_client.chat.completions.create(
+                            raw_text = call_openai_vision_json(
+                                client=openai_client,
                                 model=engine_name,
-                                response_format={ "type": "json_object" },
-                                messages=[{"role": "user", "content": [
-                                    {"type": "text", "text": prompt},
-                                    {"type": "image_url", "image_url": {"url": f"data:image/png;base64,{base64_img}"}}
-                                ]}]
+                                prompt=prompt,
+                                image_data_url=f"data:image/png;base64,{base64_img}",
+                                timeout=45,
                             )
-                            raw_text = response.choices[0].message.content
 
                         data = self.safe_parse_json(raw_text)
                         return page_num, data.get("questions", [])
