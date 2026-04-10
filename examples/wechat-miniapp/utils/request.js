@@ -1,9 +1,10 @@
-const { API_BASE_URL } = require("./config");
+const { getApiBaseUrl } = require("./config");
 
 function request({ url, method = "GET", data, token, timeout = 60000 }) {
   return new Promise((resolve, reject) => {
+    const apiBaseUrl = getApiBaseUrl();
     wx.request({
-      url: `${API_BASE_URL}${url}`,
+      url: `${apiBaseUrl}${url}`,
       method,
       data,
       timeout,

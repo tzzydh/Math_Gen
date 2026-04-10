@@ -1,5 +1,51 @@
-const API_BASE_URL = "https://api.yourdomain.com/api/v1";
+const LOCAL_API_BASE_URL = "http://192.168.31.159:8000/api/v1";
+const PROD_API_BASE_URL = "https://api.yourdomain.com/api/v1";
+
+function isInvalidUrl(url) {
+  if (!url || typeof url !== "string") {
+    return true;
+  }
+  if (!/^https?:\/\//.test(url)) {
+    return true;
+  }
+  return (
+    url.includes("localhost") ||
+    url.includes("127.0.0.1") ||
+    url.includes("yourdomain.com")
+  );
+}
+
+function readOverride() {
+  try {
+    return wx.getStorageSync("api_base_url_override");
+  } catch (error) {
+    console.log("read api_base_url_override failed", error);
+    return "";
+  }
+}
+
+function clearInvalidOverride() {
+  try {
+    const override = readOverride();
+    if (isInvalidUrl(override)) {
+      wx.removeStorageSync("api_base_url_override");
+    }
+  } catch (error) {
+    console.log("clear invalid override failed", error);
+  }
+}
+
+function getApiBaseUrl() {
+  const override = readOverride();
+  if (!isInvalidUrl(override)) {
+    return override;
+  }
+  return LOCAL_API_BASE_URL;
+}
 
 module.exports = {
-  API_BASE_URL,
+  LOCAL_API_BASE_URL,
+  PROD_API_BASE_URL,
+  clearInvalidOverride,
+  getApiBaseUrl,
 };
