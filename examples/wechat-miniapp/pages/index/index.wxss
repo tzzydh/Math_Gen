@@ -1,0 +1,133 @@
+.page {
+  min-height: 100vh;
+  padding: 28rpx;
+  background:
+    radial-gradient(circle at top right, rgba(72, 156, 255, 0.25), transparent 32%),
+    linear-gradient(180deg, #eef4ff 0%, #f7fbff 36%, #fff8ef 100%);
+}
+
+.hero {
+  padding: 36rpx 30rpx;
+  border-radius: 34rpx;
+  background: linear-gradient(135deg, #11253f 0%, #1c64f2 56%, #44b6ff 100%);
+  box-shadow: 0 18rpx 44rpx rgba(15, 23, 42, 0.18);
+}
+
+.eyebrow {
+  color: rgba(255, 255, 255, 0.78);
+  font-size: 22rpx;
+  letter-spacing: 3rpx;
+}
+
+.hero-title {
+  margin-top: 10rpx;
+  color: #ffffff;
+  font-size: 46rpx;
+  font-weight: 700;
+  line-height: 1.3;
+}
+
+.hero-subtitle {
+  margin-top: 16rpx;
+  color: rgba(255, 255, 255, 0.86);
+  font-size: 26rpx;
+  line-height: 1.78;
+}
+
+.hero-status {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14rpx;
+  margin-top: 20rpx;
+}
+
+.status-pill {
+  padding: 10rpx 18rpx;
+  border-radius: 999rpx;
+  background: rgba(255, 255, 255, 0.16);
+  color: #ffffff;
+  font-size: 22rpx;
+}
+
+.login-btn {
+  margin-top: 24rpx;
+  background: #ffffff;
+  color: #1d4ed8;
+  border-radius: 18rpx;
+  font-weight: 700;
+}
+
+.module-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 22rpx;
+  margin-top: 28rpx;
+}
+
+.module-card {
+  padding: 30rpx;
+  border-radius: 30rpx;
+  box-shadow: 0 14rpx 34rpx rgba(15, 23, 42, 0.08);
+}
+
+.math-card {
+  background: linear-gradient(180deg, #ffffff 0%, #f5f9ff 100%);
+}
+
+.chinese-card {
+  background: linear-gradient(180deg, #fffdf8 0%, #fff5eb 100%);
+}
+
+.english-card {
+  background: linear-gradient(180deg, #fffdfd 0%, #fdf2f8 100%);
+}
+
+.gaokao-card {
+  background: linear-gradient(180deg, #f7fff9 0%, #eefbf2 100%);
+}
+
+.module-tag {
+  display: inline-block;
+  padding: 8rpx 18rpx;
+  border-radius: 999rpx;
+  font-size: 22rpx;
+  color: #102a43;
+  background: rgba(37, 99, 235, 0.12);
+}
+
+.module-title {
+  margin-top: 18rpx;
+  font-size: 38rpx;
+  font-weight: 700;
+  color: #102a43;
+}
+
+.module-desc {
+  margin-top: 12rpx;
+  color: #52606d;
+  font-size: 26rpx;
+  line-height: 1.75;
+}
+
+.module-btn {
+  margin-top: 20rpx;
+  border-radius: 18rpx;
+  color: #ffffff;
+  font-weight: 700;
+}
+
+.math-btn {
+  background: #2563eb;
+}
+
+.chinese-btn {
+  background: #d9480f;
+}
+
+.english-btn {
+  background: #db2777;
+}
+
+.gaokao-btn {
+  background: #15803d;
+}

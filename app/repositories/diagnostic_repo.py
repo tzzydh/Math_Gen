@@ -1,0 +1,1 @@
+"""Diagnostic repository placeholder."""

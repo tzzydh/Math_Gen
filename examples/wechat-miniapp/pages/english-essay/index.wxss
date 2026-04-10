@@ -1,0 +1,129 @@
+.page {
+  min-height: 100vh;
+  padding: 28rpx;
+  background: linear-gradient(180deg, #fff7fb 0%, #fffdfd 100%);
+}
+
+.header-card,
+.card {
+  padding: 30rpx;
+  border-radius: 26rpx;
+  background: #ffffff;
+  box-shadow: 0 14rpx 34rpx rgba(15, 23, 42, 0.08);
+}
+
+.header-card {
+  background: linear-gradient(135deg, #9d174d 0%, #db2777 100%);
+}
+
+.header-title {
+  color: #ffffff;
+  font-size: 40rpx;
+  font-weight: 700;
+}
+
+.header-subtitle,
+.header-meta {
+  margin-top: 12rpx;
+  color: rgba(255, 255, 255, 0.84);
+  font-size: 24rpx;
+  line-height: 1.75;
+}
+
+.card {
+  margin-top: 24rpx;
+}
+
+.step-title {
+  margin-top: 18rpx;
+  margin-bottom: 14rpx;
+  font-size: 30rpx;
+  font-weight: 700;
+  color: #831843;
+}
+
+.essay-btn {
+  margin-top: 12rpx;
+  background: #db2777;
+  color: #ffffff;
+  border-radius: 18rpx;
+  font-weight: 700;
+}
+
+.title-input,
+.essay-text {
+  width: 100%;
+  box-sizing: border-box;
+  margin-top: 18rpx;
+  padding: 20rpx;
+  border-radius: 18rpx;
+  border: 1rpx solid #f9a8d4;
+  background: #fff5fa;
+  color: #4a044e;
+}
+
+.title-input {
+  height: 88rpx;
+}
+
+.essay-text {
+  min-height: 280rpx;
+}
+
+.meta-line {
+  margin-top: 14rpx;
+  color: #9d174d;
+  font-size: 26rpx;
+}
+
+.result-block {
+  margin-top: 20rpx;
+  padding: 20rpx;
+  border-radius: 18rpx;
+  background: #fff1f7;
+}
+
+.history-block {
+  margin-top: 24rpx;
+  padding: 22rpx;
+  border-radius: 18rpx;
+  background: #fff7fb;
+  border: 1rpx solid #fbcfe8;
+}
+
+.history-item {
+  margin-top: 14rpx;
+  padding: 18rpx;
+  border-radius: 16rpx;
+  background: #ffffff;
+}
+
+.history-title {
+  color: #831843;
+  font-size: 28rpx;
+  font-weight: 700;
+}
+
+.history-meta {
+  margin-top: 8rpx;
+  color: #be185d;
+  font-size: 24rpx;
+}
+
+.error-block {
+  background: #fef2f2;
+}
+
+.result-label {
+  margin-bottom: 10rpx;
+  font-size: 28rpx;
+  font-weight: 700;
+  color: #831843;
+}
+
+.result-text {
+  margin-bottom: 10rpx;
+  color: #6b214f;
+  line-height: 1.7;
+  word-break: break-all;
+}

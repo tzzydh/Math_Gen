@@ -1,0 +1,61 @@
+<view class="page">
+  <view class="header-card">
+    <view class="header-title">AI 语文作文批改</view>
+    <view class="header-subtitle">
+      上传作文截图后，系统会自动识别原文、完成润色与评分，并生成带红批标注的 PDF 报告。
+    </view>
+    <view class="header-meta">登录状态：{{token ? '已登录' : '未登录'}}</view>
+  </view>
+
+  <view class="card">
+    <view class="step-title">1. 上传作文截图</view>
+    <button class="essay-btn" bindtap="handleChooseEssayAndUpload" disabled="{{!token}}">
+      选择作文截图并上传
+    </button>
+
+    <view wx:if="{{essayUploadedUrl}}" class="result-block">
+      <view class="result-label">已上传作文截图</view>
+      <view class="result-text">{{essayUploadedUrl}}</view>
+    </view>
+
+    <view class="step-title">2. 可选补充信息</view>
+    <input
+      class="title-input"
+      placeholder="可选：手动填写作文标题"
+      value="{{essayTitle}}"
+      bindinput="handleEssayTitleInput"
+    />
+    <textarea
+      class="essay-text"
+      placeholder="如果截图不够清晰，可以在这里粘贴作文全文作为备用输入。"
+      value="{{essayRawText}}"
+      bindinput="handleEssayRawTextInput"
+    />
+
+    <button class="essay-btn" bindtap="handleRunEssayCorrection" disabled="{{!token || !essayAssetId}}">
+      开始作文批改
+    </button>
+
+    <view class="meta-line">Asset ID：{{essayAssetId || '-'}}</view>
+    <view class="meta-line">批改状态：{{essayStatus || '-'}}</view>
+
+    <view wx:if="{{essayError}}" class="result-block error-block">
+      <view class="result-label">批改错误</view>
+      <view class="result-text">{{essayError}}</view>
+    </view>
+
+    <view wx:if="{{recentReviews.length}}" class="history-block">
+      <view class="result-label">最近批改</view>
+      <view
+        wx:for="{{recentReviews}}"
+        wx:key="review_id"
+        class="history-item"
+        data-review-id="{{item.review_id}}"
+        bindtap="openReviewDetail"
+      >
+        <view class="history-title">{{item.corrected_title}}</view>
+        <view class="history-meta">得分 {{item.score}} / {{item.score_max}}</view>
+      </view>
+    </view>
+  </view>
+</view>

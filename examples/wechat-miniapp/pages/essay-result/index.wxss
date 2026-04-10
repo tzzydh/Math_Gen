@@ -1,0 +1,139 @@
+.page {
+  min-height: 100vh;
+  padding: 28rpx;
+  background:
+    radial-gradient(circle at top right, rgba(255, 187, 120, 0.22), transparent 30%),
+    linear-gradient(180deg, #fff8f1 0%, #fffdf9 100%);
+}
+
+.hero,
+.card {
+  padding: 30rpx;
+  border-radius: 28rpx;
+  background: #ffffff;
+  box-shadow: 0 14rpx 34rpx rgba(15, 23, 42, 0.08);
+}
+
+.hero {
+  background: linear-gradient(135deg, #7c2d12 0%, #ea580c 100%);
+}
+
+.hero-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12rpx;
+}
+
+.hero-tag {
+  padding: 8rpx 18rpx;
+  border-radius: 999rpx;
+  background: rgba(255, 255, 255, 0.16);
+  color: #ffffff;
+  font-size: 22rpx;
+}
+
+.hero-title {
+  color: #ffffff;
+  font-size: 40rpx;
+  font-weight: 700;
+  line-height: 1.4;
+}
+
+.hero-score {
+  margin-top: 12rpx;
+  color: #fff7ed;
+  font-size: 46rpx;
+  font-weight: 700;
+}
+
+.hero-subtitle {
+  margin-top: 12rpx;
+  color: rgba(255, 255, 255, 0.82);
+  font-size: 24rpx;
+  line-height: 1.7;
+}
+
+.card {
+  margin-top: 24rpx;
+}
+
+.warm-card {
+  background: linear-gradient(180deg, #fff7ed 0%, #ffffff 100%);
+}
+
+.pdf-card {
+  background: linear-gradient(180deg, #f0fdf4 0%, #ffffff 100%);
+}
+
+.section-title {
+  margin-bottom: 14rpx;
+  font-size: 30rpx;
+  font-weight: 700;
+  color: #7c2d12;
+}
+
+.text-block {
+  margin-bottom: 12rpx;
+  color: #4b5563;
+  line-height: 1.8;
+  word-break: break-all;
+}
+
+.preserve {
+  white-space: pre-wrap;
+}
+
+.minor-title {
+  margin-bottom: 12rpx;
+  font-size: 30rpx;
+  font-weight: 700;
+  color: #9a3412;
+}
+
+.strong {
+  font-size: 32rpx;
+  font-weight: 700;
+  color: #9a3412;
+}
+
+.tag-group {
+  margin-top: 14rpx;
+  padding: 18rpx;
+  border-radius: 18rpx;
+  background: #fff7ed;
+}
+
+.tag-title {
+  margin-bottom: 8rpx;
+  font-size: 26rpx;
+  font-weight: 700;
+  color: #c2410c;
+}
+
+.download-btn,
+.copy-btn {
+  margin-top: 18rpx;
+  border-radius: 18rpx;
+  font-weight: 700;
+}
+
+.download-btn {
+  background: #0f766e;
+  color: #ffffff;
+}
+
+.copy-btn {
+  background: #ecfdf5;
+  color: #0f766e;
+  border: 1rpx solid #99f6e4;
+}
+
+.link {
+  margin-top: 18rpx;
+  color: #0f766e;
+}
+
+.empty-page {
+  display: flex;
+  align-items: center;
+}

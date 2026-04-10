@@ -1,0 +1,143 @@
+<view class="page">
+  <view class="header-card">
+    <view class="header-title">吉林省高考志愿规划</view>
+    <view class="header-subtitle">
+      基于吉林省一分一段、控制线和公开录取基线，先做方向判断，再给出冲 / 稳 / 保建议。
+    </view>
+    <view class="header-meta">登录状态：{{token ? '已登录' : '未登录'}}</view>
+  </view>
+
+  <view class="card">
+    <view class="section-title">基础信息</view>
+
+    <view class="field-group">
+      <view class="field-label">当前版本</view>
+      <view class="static-field">仅支持吉林省</view>
+    </view>
+
+    <view class="two-col">
+      <view class="field-group">
+        <view class="field-label">高考分数</view>
+        <input
+          class="field-input"
+          placeholder="例如：560"
+          placeholder-class="field-placeholder"
+          data-field="score"
+          value="{{score}}"
+          bindinput="handleFieldInput"
+        />
+      </view>
+
+      <view class="field-group">
+        <view class="field-label">位次</view>
+        <input
+          class="field-input"
+          placeholder="可选，不填则自动换算"
+          placeholder-class="field-placeholder"
+          data-field="rank"
+          value="{{rank}}"
+          bindinput="handleFieldInput"
+        />
+      </view>
+    </view>
+
+    <view class="field-group">
+      <view class="field-label">选科组合</view>
+      <input
+        class="field-input"
+        placeholder="例如：物化生 / 史政地"
+        placeholder-class="field-placeholder"
+        data-field="subjectCombination"
+        value="{{subjectCombination}}"
+        bindinput="handleFieldInput"
+      />
+    </view>
+
+    <view class="section-title section-gap">偏好信息</view>
+
+    <view class="field-group">
+      <view class="field-label">意向专业</view>
+      <input
+        class="field-input"
+        placeholder="例如：计算机、临床医学、法学"
+        placeholder-class="field-placeholder"
+        data-field="preferredMajors"
+        value="{{preferredMajors}}"
+        bindinput="handleFieldInput"
+      />
+    </view>
+
+    <view class="field-group">
+      <view class="field-label">意向城市</view>
+      <input
+        class="field-input"
+        placeholder="例如：长春、沈阳、天津、北京"
+        placeholder-class="field-placeholder"
+        data-field="preferredCities"
+        value="{{preferredCities}}"
+        bindinput="handleFieldInput"
+      />
+    </view>
+
+    <view class="field-group">
+      <view class="field-label">职业倾向</view>
+      <input
+        class="field-input"
+        placeholder="例如：稳定编制 / 工程技术 / 金融"
+        placeholder-class="field-placeholder"
+        data-field="careerPreferences"
+        value="{{careerPreferences}}"
+        bindinput="handleFieldInput"
+      />
+    </view>
+
+    <view class="field-group">
+      <view class="field-label">家庭预算</view>
+      <input
+        class="field-input"
+        placeholder="例如：优先公办 / 可接受中外合作"
+        placeholder-class="field-placeholder"
+        data-field="familyBudget"
+        value="{{familyBudget}}"
+        bindinput="handleFieldInput"
+      />
+    </view>
+
+    <view class="field-group">
+      <view class="field-label">补充说明</view>
+      <textarea
+        class="notes-input"
+        placeholder="例如：能否接受省外、是否优先双一流、是否看重考研。"
+        placeholder-class="field-placeholder"
+        data-field="notes"
+        value="{{notes}}"
+        bindinput="handleFieldInput"
+      />
+    </view>
+
+    <button class="primary-btn" bindtap="handleCreatePlan" disabled="{{!token}}">
+      生成吉林志愿方案
+    </button>
+
+    <view class="meta-line">规划状态：{{planningStatus || '-'}}</view>
+
+    <view wx:if="{{planningError}}" class="result-block error-block">
+      <view class="result-label">规划错误</view>
+      <view class="result-text">{{planningError}}</view>
+    </view>
+  </view>
+
+  <view wx:if="{{recentPlans.length}}" class="card">
+    <view class="section-title">最近生成</view>
+    <view
+      wx:for="{{recentPlans}}"
+      wx:key="plan_id"
+      class="history-item"
+      data-plan-id="{{item.plan_id}}"
+      bindtap="openPlanDetail"
+    >
+      <view class="history-title">{{item.province}} · {{item.score}}分 · {{item.subject_combination}}</view>
+      <view class="history-summary">{{item.summary}}</view>
+    </view>
+  </view>
+</view>

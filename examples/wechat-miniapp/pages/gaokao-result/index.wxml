@@ -1,0 +1,81 @@
+<view class="page" wx:if="{{loading}}">
+  <view class="card">
+    <view class="section-title">正在加载志愿结果...</view>
+  </view>
+</view>
+
+<view class="page" wx:elif="{{error}}">
+  <view class="card">
+    <view class="section-title">结果加载失败</view>
+    <view class="text-block">{{error}}</view>
+  </view>
+</view>
+
+<view class="page" wx:elif="{{result}}">
+  <view class="hero">
+    <view class="hero-title">{{result.province}} · {{result.trackLabel}} · {{result.score}}分</view>
+    <view class="hero-subtitle">估算位次约 {{result.calculated_rank}} 名 · {{result.subject_combination}}</view>
+  </view>
+
+  <view class="card">
+    <view class="section-title">整体判断</view>
+    <view class="text-block preserve">{{result.summary}}</view>
+  </view>
+
+  <view class="card">
+    <view class="section-title">关键定位</view>
+    <view class="stats-row">
+      <view class="stat-pill" wx:for="{{result.controlLines}}" wx:key="line_type">
+        <view class="stat-label">{{item.label}}</view>
+        <view class="stat-value">{{item.score}}分</view>
+      </view>
+    </view>
+  </view>
+
+  <view class="card">
+    <view class="section-title">先顾方向</view>
+    <view wx:for="{{result.direction_cards}}" wx:key="title" class="direction-card">
+      <view class="direction-title">{{item.title}}</view>
+      <view class="text-block">{{item.content}}</view>
+    </view>
+  </view>
+
+  <view class="card">
+    <view class="section-title">填报策略</view>
+    <view wx:for="{{result.strategy}}" wx:key="index" class="list-item">
+      <view class="bullet"></view>
+      <view class="list-text">{{item}}</view>
+    </view>
+  </view>
+
+  <view class="card warning-card">
+    <view class="section-title">风险提醒</view>
+    <view wx:for="{{result.risk_notes}}" wx:key="index" class="list-item">
+      <view class="bullet warning-bullet"></view>
+      <view class="list-text">{{item}}</view>
+    </view>
+  </view>
+
+  <view class="card">
+    <view class="section-title">吉林数据版推荐</view>
+    <view wx:for="{{result.bucketGroups}}" wx:key="key" class="bucket-block">
+      <view class="bucket-title">{{item.title}}</view>
+      <view wx:for="{{item.items}}" wx:key="index" class="recommendation-card">
+        <view class="recommendation-head">
+          <view class="recommendation-title">{{item.school}} · {{item.major}}</view>
+          <view class="score-pill">{{item.bucketLabel}}</view>
+        </view>
+        <view class="recommendation-meta">{{item.city}}<text wx:if="{{item.school_level}}"> · {{item.school_level}}</text></view>
+        <view class="recommendation-meta">2025最低分 {{item.min_score}}分<text wx:if="{{item.min_rank}}"> · 最低位次 {{item.min_rank}}</text></view>
+        <view class="text-block">{{item.reason}}</view>
+      </view>
+    </view>
+  </view>
+</view>
+
+<view class="page empty-page" wx:else>
+  <view class="card">
+    <view class="section-title">暂无规划结果</view>
+    <view class="text-block">请先返回上一页生成吉林志愿方案。</view>
+  </view>
+</view>

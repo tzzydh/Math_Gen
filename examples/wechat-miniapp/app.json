@@ -1,0 +1,17 @@
+{
+  "pages": [
+    "pages/index/index",
+    "pages/math/index",
+    "pages/essay/index",
+    "pages/english-essay/index",
+    "pages/essay-result/index",
+    "pages/gaokao/index",
+    "pages/gaokao-result/index"
+  ],
+  "window": {
+    "navigationBarTitleText": "AI 提分助手",
+    "navigationBarBackgroundColor": "#ffffff",
+    "navigationBarTextStyle": "black",
+    "backgroundColor": "#f6f7fb"
+  }
+}

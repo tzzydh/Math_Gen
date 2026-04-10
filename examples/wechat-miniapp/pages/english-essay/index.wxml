@@ -1,0 +1,61 @@
+<view class="page">
+  <view class="header-card">
+    <view class="header-title">AI English Essay Review</view>
+    <view class="header-subtitle">
+      Upload an English essay screenshot and get OCR text, a polished revision, scoring feedback, and a downloadable PDF report.
+    </view>
+    <view class="header-meta">Login status: {{token ? 'Ready' : 'Not logged in'}}</view>
+  </view>
+
+  <view class="card">
+    <view class="step-title">1. Upload essay screenshot</view>
+    <button class="essay-btn" bindtap="handleChooseEssayAndUpload" disabled="{{!token}}">
+      Choose screenshot and upload
+    </button>
+
+    <view wx:if="{{essayUploadedUrl}}" class="result-block">
+      <view class="result-label">Uploaded file</view>
+      <view class="result-text">{{essayUploadedUrl}}</view>
+    </view>
+
+    <view class="step-title">2. Optional support input</view>
+    <input
+      class="title-input"
+      placeholder="Optional: essay title"
+      value="{{essayTitle}}"
+      bindinput="handleEssayTitleInput"
+    />
+    <textarea
+      class="essay-text"
+      placeholder="If the screenshot is blurry, paste the essay text here as a fallback."
+      value="{{essayRawText}}"
+      bindinput="handleEssayRawTextInput"
+    />
+
+    <button class="essay-btn" bindtap="handleRunEssayCorrection" disabled="{{!token || !essayAssetId}}">
+      Start English review
+    </button>
+
+    <view class="meta-line">Asset ID: {{essayAssetId || '-'}}</view>
+    <view class="meta-line">Review status: {{essayStatus || '-'}}</view>
+
+    <view wx:if="{{essayError}}" class="result-block error-block">
+      <view class="result-label">Review error</view>
+      <view class="result-text">{{essayError}}</view>
+    </view>
+
+    <view wx:if="{{recentReviews.length}}" class="history-block">
+      <view class="result-label">Recent reviews</view>
+      <view
+        wx:for="{{recentReviews}}"
+        wx:key="review_id"
+        class="history-item"
+        data-review-id="{{item.review_id}}"
+        bindtap="openReviewDetail"
+      >
+        <view class="history-title">{{item.corrected_title}}</view>
+        <view class="history-meta">Score {{item.score}} / {{item.score_max}}</view>
+      </view>
+    </view>
+  </view>
+</view>

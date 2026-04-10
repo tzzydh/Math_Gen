@@ -1,0 +1,44 @@
+[
+  {
+    "year": 2025,
+    "province": "吉林省",
+    "track": "physics",
+    "line_type": "special",
+    "score": 479
+  },
+  {
+    "year": 2025,
+    "province": "吉林省",
+    "track": "physics",
+    "line_type": "undergraduate",
+    "score": 340
+  },
+  {
+    "year": 2025,
+    "province": "吉林省",
+    "track": "physics",
+    "line_type": "specialty",
+    "score": 160
+  },
+  {
+    "year": 2025,
+    "province": "吉林省",
+    "track": "history",
+    "line_type": "special",
+    "score": 493
+  },
+  {
+    "year": 2025,
+    "province": "吉林省",
+    "track": "history",
+    "line_type": "undergraduate",
+    "score": 384
+  },
+  {
+    "year": 2025,
+    "province": "吉林省",
+    "track": "history",
+    "line_type": "specialty",
+    "score": 160
+  }
+]

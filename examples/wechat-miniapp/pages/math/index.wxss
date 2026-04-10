@@ -1,0 +1,96 @@
+.page {
+  min-height: 100vh;
+  padding: 28rpx;
+  background: linear-gradient(180deg, #edf4ff 0%, #f8fbff 100%);
+}
+
+.header-card,
+.card {
+  padding: 30rpx;
+  border-radius: 26rpx;
+  background: #ffffff;
+  box-shadow: 0 14rpx 34rpx rgba(15, 23, 42, 0.08);
+}
+
+.header-card {
+  background: linear-gradient(135deg, #123f77 0%, #2563eb 100%);
+}
+
+.header-title {
+  color: #ffffff;
+  font-size: 40rpx;
+  font-weight: 700;
+}
+
+.header-subtitle,
+.header-meta {
+  margin-top: 12rpx;
+  color: rgba(255, 255, 255, 0.85);
+  font-size: 24rpx;
+  line-height: 1.7;
+}
+
+.card {
+  margin-top: 24rpx;
+}
+
+.section-title {
+  margin-top: 18rpx;
+  margin-bottom: 14rpx;
+  font-size: 30rpx;
+  font-weight: 700;
+  color: #102a43;
+}
+
+.primary-btn {
+  margin-top: 12rpx;
+  background: #2563eb;
+  color: #ffffff;
+  border-radius: 18rpx;
+  font-weight: 700;
+}
+
+.raw-text {
+  min-height: 220rpx;
+  padding: 20rpx;
+  border-radius: 18rpx;
+  border: 1rpx solid #d6e4f0;
+  background: #f8fbff;
+  box-sizing: border-box;
+  width: 100%;
+}
+
+.meta-line {
+  margin-top: 14rpx;
+  color: #52606d;
+  font-size: 26rpx;
+}
+
+.result-block {
+  margin-top: 20rpx;
+  padding: 20rpx;
+  border-radius: 18rpx;
+  background: #eff6ff;
+}
+
+.error-block {
+  background: #fef2f2;
+}
+
+.result-label {
+  margin-bottom: 10rpx;
+  font-size: 28rpx;
+  font-weight: 700;
+  color: #102a43;
+}
+
+.result-text {
+  margin-bottom: 10rpx;
+  color: #334155;
+  line-height: 1.7;
+  word-break: break-all;
+}
+
+.preserve {
+  white-space: pre-wrap;
+}

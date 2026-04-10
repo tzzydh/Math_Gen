@@ -1,0 +1,51 @@
+<view class="page">
+  <view class="header-card">
+    <view class="header-title">AI 数学靶向诊断</view>
+    <view class="header-subtitle">
+      上传题目截图后，系统会自动 OCR 识别、完成知识点分类，并给出章节定位与匹配结果。
+    </view>
+    <view class="header-meta">登录状态：{{token ? '已登录' : '未登录'}}</view>
+  </view>
+
+  <view class="card">
+    <view class="section-title">1. 上传题目截图</view>
+    <button class="primary-btn" bindtap="handleChooseAndUpload" disabled="{{!token}}">
+      选择数学题截图并上传
+    </button>
+
+    <view wx:if="{{uploadedUrl}}" class="result-block">
+      <view class="result-label">已上传文件</view>
+      <view class="result-text">{{uploadedUrl}}</view>
+    </view>
+
+    <view class="section-title">2. 诊断设置</view>
+    <textarea
+      class="raw-text"
+      placeholder="如果 OCR 识别不准，可以在这里手动粘贴题目文字作为备用输入。"
+      value="{{rawText}}"
+      bindinput="handleRawTextInput"
+    />
+
+    <button class="primary-btn" bindtap="handleRunDiagnostic" disabled="{{!token || !assetId}}">
+      开始诊断
+    </button>
+
+    <view class="meta-line">Asset ID：{{assetId || '-'}}</view>
+    <view class="meta-line">诊断状态：{{diagnosticStatus || '-'}}</view>
+
+    <view wx:if="{{diagnosticError}}" class="result-block error-block">
+      <view class="result-label">诊断错误</view>
+      <view class="result-text">{{diagnosticError}}</view>
+    </view>
+
+    <view wx:if="{{diagnosticResult}}" class="result-block">
+      <view class="result-label">诊断结果</view>
+      <view class="result-text">来源：{{diagnosticResult.source || '-'}}</view>
+      <view class="result-text">章节：{{diagnosticResult.chapter || '-'}}</view>
+      <view class="result-text">置信度：{{diagnosticResult.confidence || '-'}}</view>
+      <view class="result-text">识别预览：{{diagnosticResult.extracted_text_preview || '-'}}</view>
+      <view class="result-text preserve">知识点权重：{{diagnosticKnowledgeText || '-'}}</view>
+      <view class="result-text preserve">Top Matches：{{diagnosticTopMatchesText || '-'}}</view>
+    </view>
+  </view>
+</view>

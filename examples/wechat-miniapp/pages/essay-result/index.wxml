@@ -1,0 +1,73 @@
+<view class="page" wx:if="{{loading}}">
+  <view class="card">
+    <view class="section-title">正在加载作文结果...</view>
+  </view>
+</view>
+
+<view class="page" wx:elif="{{error}}">
+  <view class="card">
+    <view class="section-title">结果加载失败</view>
+    <view class="text-block">{{error}}</view>
+  </view>
+</view>
+
+<view class="page" wx:elif="{{result}}">
+  <view class="hero">
+    <view class="hero-tags">
+      <view class="hero-tag">{{subjectLabel}}</view>
+      <view class="hero-tag">{{result.source === 'vision_ocr' ? '自动 OCR' : '手动文本'}}</view>
+    </view>
+    <view class="hero-title">{{result.corrected_title || '作文批改结果'}}</view>
+    <view class="hero-score">{{result.score}} / {{result.score_max}}</view>
+    <view class="hero-subtitle">原文识别、润色修改、批改点评与 PDF 下载</view>
+  </view>
+
+  <view class="card">
+    <view class="section-title">识别原文</view>
+    <view class="minor-title">{{result.recognized_title || '未识别标题'}}</view>
+    <view class="text-block preserve">{{result.recognized_text}}</view>
+  </view>
+
+  <view class="card warm-card">
+    <view class="section-title">润色后作文</view>
+    <view class="minor-title">{{result.corrected_title}}</view>
+    <view class="text-block preserve">{{result.corrected_text}}</view>
+  </view>
+
+  <view class="card">
+    <view class="section-title">整体点评</view>
+    <view class="text-block preserve">{{result.summary}}</view>
+
+    <view class="tag-group">
+      <view class="tag-title">优点</view>
+      <view class="text-block">{{strengthsText || '暂无'}}</view>
+    </view>
+
+    <view class="tag-group">
+      <view class="tag-title">问题</view>
+      <view class="text-block">{{issuesText || '暂无'}}</view>
+    </view>
+
+    <view class="tag-group">
+      <view class="tag-title">建议</view>
+      <view class="text-block">{{suggestionsText || '暂无'}}</view>
+    </view>
+  </view>
+
+  <view class="card pdf-card">
+    <view class="section-title">PDF 报告</view>
+    <view class="text-block">
+      PDF 中包含 OCR 原文、红批标注版、润色后全文与整体点评，可直接一键下载。
+    </view>
+    <button class="download-btn" bindtap="handleDownloadEssayPdf">一键下载 PDF</button>
+    <button class="copy-btn" bindtap="copyPdfLink">复制 PDF 链接</button>
+    <view class="text-block link">{{result.pdf_url}}</view>
+  </view>
+</view>
+
+<view class="page empty-page" wx:else>
+  <view class="card">
+    <view class="section-title">暂无作文结果</view>
+    <view class="text-block">请先返回上一页上传作文截图并完成批改。</view>
+  </view>
+</view>
