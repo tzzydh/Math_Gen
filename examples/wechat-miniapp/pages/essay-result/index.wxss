@@ -33,6 +33,7 @@
 }
 
 .hero-title {
+  margin-top: 12rpx;
   color: #ffffff;
   font-size: 40rpx;
   font-weight: 700;
@@ -61,6 +62,10 @@
   background: linear-gradient(180deg, #fff7ed 0%, #ffffff 100%);
 }
 
+.soft-card {
+  background: linear-gradient(180deg, #f8fafc 0%, #ffffff 100%);
+}
+
 .pdf-card {
   background: linear-gradient(180deg, #f0fdf4 0%, #ffffff 100%);
 }
@@ -76,7 +81,7 @@
   margin-bottom: 12rpx;
   color: #4b5563;
   line-height: 1.8;
-  word-break: break-all;
+  word-break: break-word;
 }
 
 .preserve {
@@ -86,12 +91,6 @@
 .minor-title {
   margin-bottom: 12rpx;
   font-size: 30rpx;
-  font-weight: 700;
-  color: #9a3412;
-}
-
-.strong {
-  font-size: 32rpx;
   font-weight: 700;
   color: #9a3412;
 }

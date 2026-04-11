@@ -16,10 +16,13 @@
     <view class="hero-tags">
       <view class="hero-tag">{{subjectLabel}}</view>
       <view class="hero-tag">{{result.source === 'vision_ocr' ? '自动 OCR' : '手动文本'}}</view>
+      <view class="hero-tag" wx:if="{{isEnglish}}">中英对照</view>
     </view>
     <view class="hero-title">{{result.corrected_title || '作文批改结果'}}</view>
     <view class="hero-score">{{result.score}} / {{result.score_max}}</view>
-    <view class="hero-subtitle">原文识别、润色修改、批改点评与 PDF 下载</view>
+    <view class="hero-subtitle">
+      {{isEnglish ? '英文成稿、中文对照、双语点评与 PDF 下载' : '原文识别、润色修改、批改点评与 PDF 下载'}}
+    </view>
   </view>
 
   <view class="card">
@@ -29,37 +32,63 @@
   </view>
 
   <view class="card warm-card">
-    <view class="section-title">润色后作文</view>
+    <view class="section-title">{{isEnglish ? '润色后英文成稿' : '润色后作文'}}</view>
     <view class="minor-title">{{result.corrected_title}}</view>
     <view class="text-block preserve">{{result.corrected_text}}</view>
   </view>
 
+  <view class="card soft-card" wx:if="{{isEnglish && result.corrected_text_cn}}">
+    <view class="section-title">中文对照译文</view>
+    <view class="minor-title">{{result.corrected_title_cn || result.corrected_title}}</view>
+    <view class="text-block preserve">{{result.corrected_text_cn}}</view>
+  </view>
+
   <view class="card">
-    <view class="section-title">整体点评</view>
+    <view class="section-title">{{isEnglish ? '英文总体点评' : '整体点评'}}</view>
     <view class="text-block preserve">{{result.summary}}</view>
 
     <view class="tag-group">
-      <view class="tag-title">优点</view>
+      <view class="tag-title">{{isEnglish ? '英文优点' : '优点'}}</view>
       <view class="text-block">{{strengthsText || '暂无'}}</view>
     </view>
 
     <view class="tag-group">
-      <view class="tag-title">问题</view>
+      <view class="tag-title">{{isEnglish ? '英文问题' : '问题'}}</view>
       <view class="text-block">{{issuesText || '暂无'}}</view>
     </view>
 
     <view class="tag-group">
-      <view class="tag-title">建议</view>
+      <view class="tag-title">{{isEnglish ? '英文建议' : '建议'}}</view>
       <view class="text-block">{{suggestionsText || '暂无'}}</view>
+    </view>
+  </view>
+
+  <view class="card soft-card" wx:if="{{isEnglish && (result.summary_cn || strengthsCnText || issuesCnText || suggestionsCnText)}}">
+    <view class="section-title">中文讲解版</view>
+    <view class="text-block preserve" wx:if="{{result.summary_cn}}">{{result.summary_cn}}</view>
+
+    <view class="tag-group" wx:if="{{strengthsCnText}}">
+      <view class="tag-title">中文优点</view>
+      <view class="text-block">{{strengthsCnText}}</view>
+    </view>
+
+    <view class="tag-group" wx:if="{{issuesCnText}}">
+      <view class="tag-title">中文问题</view>
+      <view class="text-block">{{issuesCnText}}</view>
+    </view>
+
+    <view class="tag-group" wx:if="{{suggestionsCnText}}">
+      <view class="tag-title">中文建议</view>
+      <view class="text-block">{{suggestionsCnText}}</view>
     </view>
   </view>
 
   <view class="card pdf-card">
     <view class="section-title">PDF 报告</view>
     <view class="text-block">
-      PDF 中包含 OCR 原文、红批标注版、润色后全文与整体点评，可直接一键下载。
+      {{isEnglish ? 'PDF 中包含 OCR 原文、润色后英文成稿、中文对照译文、双语点评与批改标注。' : 'PDF 中包含 OCR 原文、红批标注版、润色后全文与整体点评。'}}
     </view>
-    <button class="download-btn" bindtap="handleDownloadEssayPdf">一键下载 PDF</button>
+    <button class="download-btn" bindtap="handleDownloadEssayPdf" loading="{{downloading}}" disabled="{{downloading}}">一键下载 PDF</button>
     <button class="copy-btn" bindtap="copyPdfLink">复制 PDF 链接</button>
     <view class="text-block link">{{result.pdf_url}}</view>
   </view>

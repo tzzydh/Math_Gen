@@ -23,6 +23,10 @@ Page({
     strengthsText: "",
     issuesText: "",
     suggestionsText: "",
+    strengthsCnText: "",
+    issuesCnText: "",
+    suggestionsCnText: "",
+    isEnglish: false,
     loading: true,
     error: "",
     downloading: false,
@@ -50,12 +54,17 @@ Page({
         timeout: 30000,
       });
 
+      const isEnglish = result.subject === "english";
       this.setData({
         result,
+        isEnglish,
         subjectLabel: getSubjectLabel(result.subject),
         strengthsText: (result.strengths || []).join("；"),
         issuesText: (result.issues || []).join("；"),
         suggestionsText: (result.suggestions || []).join("；"),
+        strengthsCnText: (result.strengths_cn || []).join("；"),
+        issuesCnText: (result.issues_cn || []).join("；"),
+        suggestionsCnText: (result.suggestions_cn || []).join("；"),
         loading: false,
       });
     } catch (error) {

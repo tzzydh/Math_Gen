@@ -55,20 +55,28 @@ You are a senior high-school English writing teacher. Review the essay and retur
 Format:
 {{
   "corrected_title":"revised title",
+  "corrected_title_cn":"中文标题",
   "corrected_text":"full revised essay",
+  "corrected_text_cn":"润色后全文的中文对照译文",
   "summary":"overall feedback",
+  "summary_cn":"中文整体点评",
   "score":21,
   "score_max":25,
   "strengths":["strength 1","strength 2"],
+  "strengths_cn":["优点1","优点2"],
   "issues":["issue 1","issue 2"],
-  "suggestions":["suggestion 1","suggestion 2"]
+  "issues_cn":["问题1","问题2"],
+  "suggestions":["suggestion 1","suggestion 2"],
+  "suggestions_cn":["建议1","建议2"]
 }}
 Requirements:
 1. Return JSON only.
 2. corrected_text must be a full polished version in natural English.
-3. Keep the original topic and the student's intended meaning whenever possible.
-4. score should be an integer on a 0-25 scale.
-5. strengths/issues/suggestions should be concise English phrases.
+3. corrected_text_cn must be a fluent Chinese translation of corrected_text.
+4. summary_cn / strengths_cn / issues_cn / suggestions_cn must be clear Chinese explanations for high-school students.
+5. Keep the original topic and the student's intended meaning whenever possible.
+6. score should be an integer on a 0-25 scale.
+7. strengths/issues/suggestions should be concise English phrases.
 
 Original title:
 {title}
@@ -147,16 +155,22 @@ class EssayService:
             "recognized_title": recognized_title,
             "recognized_text": recognized_text,
             "corrected_title": review.get("corrected_title") or recognized_title or "Writing Review",
+            "corrected_title_cn": review.get("corrected_title_cn") or "",
             "corrected_text": corrected_text,
+            "corrected_text_cn": review.get("corrected_text_cn") or "",
             "summary": review.get("summary", ""),
+            "summary_cn": review.get("summary_cn") or "",
             "score": int(review.get("score", 0) or 0),
             "score_max": int(
                 review.get("score_max", SUBJECT_CONFIG[subject]["score_max"])
                 or SUBJECT_CONFIG[subject]["score_max"]
             ),
             "strengths": self._normalize_list(review.get("strengths")),
+            "strengths_cn": self._normalize_list(review.get("strengths_cn")),
             "issues": self._normalize_list(review.get("issues")),
+            "issues_cn": self._normalize_list(review.get("issues_cn")),
             "suggestions": self._normalize_list(review.get("suggestions")),
+            "suggestions_cn": self._normalize_list(review.get("suggestions_cn")),
             "annotated_markup": annotated_markup,
             "pdf_bytes": pdf_bytes,
         }
@@ -212,13 +226,19 @@ class EssayService:
         payload = self._parse_json_payload(raw_output)
         return {
             "corrected_title": str(payload.get("corrected_title", "")).strip(),
+            "corrected_title_cn": str(payload.get("corrected_title_cn", "")).strip(),
             "corrected_text": str(payload.get("corrected_text", "")).strip(),
+            "corrected_text_cn": str(payload.get("corrected_text_cn", "")).strip(),
             "summary": str(payload.get("summary", "")).strip(),
+            "summary_cn": str(payload.get("summary_cn", "")).strip(),
             "score": payload.get("score", SUBJECT_CONFIG[subject]["score_max"] - 5),
             "score_max": payload.get("score_max", SUBJECT_CONFIG[subject]["score_max"]),
             "strengths": self._normalize_list(payload.get("strengths")),
+            "strengths_cn": self._normalize_list(payload.get("strengths_cn")),
             "issues": self._normalize_list(payload.get("issues")),
+            "issues_cn": self._normalize_list(payload.get("issues_cn")),
             "suggestions": self._normalize_list(payload.get("suggestions")),
+            "suggestions_cn": self._normalize_list(payload.get("suggestions_cn")),
         }
 
     def _build_revision_markup(self, original_text: str, corrected_text: str) -> str:
@@ -323,13 +343,51 @@ class EssayService:
             Paragraph("3. Revised Essay", heading_style),
             Paragraph(self._paragraphize_text(corrected_text), body_style),
             Spacer(1, 12),
-            Paragraph("4. Feedback", heading_style),
+        ]
+
+        if subject == "english" and str(review.get("corrected_text_cn") or "").strip():
+            story.extend(
+                [
+                    Paragraph("4. Chinese Parallel Translation", heading_style),
+                    Paragraph(self._paragraphize_text(str(review.get("corrected_text_cn") or "")), body_style),
+                    Spacer(1, 12),
+                ]
+            )
+
+        story.extend(
+            [
+            Paragraph("5. Feedback", heading_style),
             Paragraph(self._paragraphize_text(str(review.get("summary", "") or "No feedback")), body_style),
+            ]
+        )
+
+        if subject == "english" and str(review.get("summary_cn") or "").strip():
+            story.extend(
+                [
+                    Spacer(1, 8),
+                    Paragraph("中文点评", heading_style),
+                    Paragraph(self._paragraphize_text(str(review.get("summary_cn") or "")), body_style),
+                ]
+            )
+
+        story.extend(
+            [
             Spacer(1, 8),
             Paragraph("Strengths: " + self._join_items(review.get("strengths")), meta_style),
             Paragraph("Issues: " + self._join_items(review.get("issues")), meta_style),
             Paragraph("Suggestions: " + self._join_items(review.get("suggestions")), meta_style),
-        ]
+            ]
+        )
+
+        if subject == "english":
+            story.extend(
+                [
+                    Spacer(1, 8),
+                    Paragraph("优点： " + self._join_items(review.get("strengths_cn")), meta_style),
+                    Paragraph("问题： " + self._join_items(review.get("issues_cn")), meta_style),
+                    Paragraph("建议： " + self._join_items(review.get("suggestions_cn")), meta_style),
+                ]
+            )
         doc.build(story)
         try:
             with open(temp_path, "rb") as handle:
