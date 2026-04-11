@@ -6,6 +6,8 @@ from app.api.deps import get_current_user, get_db
 from app.db.models.gaokao_plan import GaokaoPlan
 from app.db.models.user import User
 from app.schemas.gaokao import (
+    GaokaoConsultationResponse,
+    GaokaoConsultationRequest,
     GaokaoControlLineItem,
     GaokaoDirectionCard,
     GaokaoPlanRequest,
@@ -16,6 +18,29 @@ from app.schemas.gaokao import (
 from app.services.gaokao_service import GaokaoService
 
 router = APIRouter()
+
+
+@router.post("/consultation", response_model=GaokaoConsultationResponse)
+def gaokao_consultation(
+    payload: GaokaoConsultationRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> GaokaoConsultationResponse:
+    del current_user
+    service = GaokaoService(db)
+    try:
+        result = service.build_consultation(payload)
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(exc),
+        ) from exc
+    except Exception as exc:
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail=str(exc),
+        ) from exc
+    return GaokaoConsultationResponse(**result)
 
 
 @router.post("/plan", response_model=GaokaoPlanResponse)

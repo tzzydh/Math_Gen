@@ -37,14 +37,14 @@
   margin-top: 24rpx;
 }
 
+.consult-card {
+  background: linear-gradient(180deg, #f7fff8 0%, #ffffff 100%);
+}
+
 .section-title {
   font-size: 36rpx;
   font-weight: 700;
   color: #14532d;
-}
-
-.section-gap {
-  margin-top: 24rpx;
 }
 
 .two-col {
@@ -111,13 +111,22 @@
   line-height: 1.6;
 }
 
-.primary-btn {
+.primary-btn,
+.secondary-btn {
   margin-top: 28rpx;
-  background: #16a34a;
-  color: #ffffff;
   border-radius: 20rpx;
   font-weight: 700;
   font-size: 30rpx;
+}
+
+.primary-btn {
+  background: #16a34a;
+  color: #ffffff;
+}
+
+.secondary-btn {
+  background: #14532d;
+  color: #ffffff;
 }
 
 .meta-line {
@@ -149,23 +158,102 @@
   line-height: 1.75;
 }
 
-.history-item {
-  margin-top: 16rpx;
-  padding: 22rpx;
-  border-radius: 22rpx;
-  background: #f7fff8;
-  border: 1rpx solid #dcfce7;
+.consult-opening {
+  color: #334155;
+  line-height: 1.8;
+  font-size: 28rpx;
 }
 
-.history-title {
+.next-step {
+  margin-top: 18rpx;
+  padding: 20rpx;
+  border-radius: 20rpx;
+  background: #ecfdf3;
+  color: #166534;
+  font-size: 26rpx;
+  line-height: 1.7;
+}
+
+.list-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 14rpx;
+  margin-top: 14rpx;
+}
+
+.bullet {
+  width: 14rpx;
+  height: 14rpx;
+  margin-top: 14rpx;
+  border-radius: 999rpx;
+  background: #16a34a;
+  flex-shrink: 0;
+}
+
+.list-text {
+  flex: 1;
+  color: #475569;
+  line-height: 1.8;
+}
+
+.question-card {
+  margin-top: 18rpx;
+  padding: 24rpx;
+  border-radius: 24rpx;
+  border: 1rpx solid #dcfce7;
+  background: #ffffff;
+}
+
+.question-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16rpx;
+}
+
+.question-title {
+  flex: 1;
   color: #14532d;
   font-size: 28rpx;
   font-weight: 700;
-  line-height: 1.5;
+  line-height: 1.6;
 }
 
-.history-summary {
-  margin-top: 12rpx;
+.question-badge {
+  padding: 8rpx 16rpx;
+  border-radius: 999rpx;
+  background: #dcfce7;
   color: #166534;
-  line-height: 1.75;
+  font-size: 22rpx;
+  font-weight: 700;
+}
+
+.question-text {
+  margin-top: 14rpx;
+  color: #334155;
+  font-size: 27rpx;
+  line-height: 1.8;
+}
+
+.question-why {
+  margin-top: 12rpx;
+  color: #64748b;
+  font-size: 24rpx;
+  line-height: 1.7;
+}
+
+.chip-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12rpx;
+  margin-top: 18rpx;
+}
+
+.chip {
+  padding: 12rpx 18rpx;
+  border-radius: 999rpx;
+  background: #f0fdf4;
+  border: 1rpx solid #bbf7d0;
+  color: #166534;
+  font-size: 24rpx;
 }

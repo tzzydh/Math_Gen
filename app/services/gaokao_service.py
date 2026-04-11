@@ -11,7 +11,7 @@ from sqlalchemy.orm import Session
 from app.db.models.gaokao_admission_baseline import GaokaoAdmissionBaseline
 from app.db.models.gaokao_control_line import GaokaoControlLine
 from app.db.models.gaokao_score_rank import GaokaoScoreRank
-from app.schemas.gaokao import GaokaoPlanRequest
+from app.schemas.gaokao import GaokaoConsultationRequest, GaokaoPlanRequest
 
 
 YEAR = 2025
@@ -38,6 +38,53 @@ DEFAULT_BUCKET_COUNTS = {
 class GaokaoService:
     def __init__(self, db: Session) -> None:
         self.db = db
+
+    def build_consultation(self, payload: GaokaoConsultationRequest) -> dict[str, Any]:
+        province = self._normalize_province(payload.province)
+        if province != PROVINCE:
+            raise ValueError("当前高考数据版只支持吉林省")
+
+        score = self._safe_parse_int(payload.score)
+        rank = self._safe_parse_int(payload.rank)
+        track = self._safe_infer_track(payload.subject_combination)
+
+        quick_judgment: list[str] = []
+        if score is not None:
+            quick_judgment.append(f"先把位置说清楚：你现在是 {score} 分。吉林省报考先看位次，再看学校。")
+        else:
+            quick_judgment.append("你连分数都没告诉我，我现在给你任何学校建议都不负责任。先把分数说清楚。")
+
+        if rank is not None:
+            quick_judgment.append(f"你已经提供了位次 {rank}，这个信息比单纯分数更值钱。")
+        elif score is not None and track:
+            inferred_rank = self._lookup_rank(track, score)
+            if inferred_rank is not None:
+                quick_judgment.append(f"按吉林省 {TRACK_LABELS[track]} 公开数据，{score} 分大约在第 {inferred_rank} 名。")
+
+        if track == "physics":
+            quick_judgment.append("物理类最大的优势是专业出口更宽，所以后面别先问学校，先问专业值不值得。")
+        elif track == "history":
+            quick_judgment.append("历史类不能只看学校名头，很多专业名字体面，但就业出口并不一定体面。")
+        else:
+            quick_judgment.append("你连选科都没说，我没法判断你是物理类还是历史类，这会直接影响方向判断。")
+
+        questions = self._build_consult_questions(payload, score=score, rank=rank, track=track)
+        readiness = "ready" if len([q for q in questions if q["required"]]) == 0 else "need_more_info"
+        opening = self._build_consult_opening(payload, score=score, rank=rank, track=track)
+        next_step = (
+            "你的关键信息已经差不多齐了，可以直接生成最终方案。"
+            if readiness == "ready"
+            else "先把上面的关键问题补齐，我再给你做最后的志愿方案。"
+        )
+
+        return {
+            "readiness": readiness,
+            "opening": opening,
+            "inferred_track": track,
+            "quick_judgment": quick_judgment[:4],
+            "questions": questions,
+            "next_step": next_step,
+        }
 
     def build_plan(self, payload: GaokaoPlanRequest) -> dict[str, Any]:
         province = self._normalize_province(payload.province)
@@ -93,17 +140,56 @@ class GaokaoService:
             "raw_output": None,
         }
 
+    def _build_consult_opening(
+        self,
+        payload: GaokaoConsultationRequest,
+        score: int | None,
+        rank: int | None,
+        track: str | None,
+    ) -> str:
+        if score is None:
+            return "我先不急着给学校名单。你得先把分数、选科、家里能承受什么、你想去哪儿，这些最基本的信息说清楚。"
+        if track == "physics":
+            return (
+                f"你现在这档大概是吉林物理类 {score} 分。先别急着冲学校，"
+                "我更想先问清楚你到底是想保就业、冲城市，还是死守某个专业。"
+            )
+        if track == "history":
+            return (
+                f"你现在这档大概是吉林历史类 {score} 分。历史类最怕选到名字好听、出口模糊的专业，"
+                "所以我得先把你的职业倾向问透。"
+            )
+        return "我先把你的情况问透，再给结论。志愿填报最怕的是问题没问清楚，答案已经给出去了。"
+
     def _normalize_province(self, value: str) -> str:
         normalized = re.sub(r"\s+", "", value or "")
         if normalized in {"吉林", "吉林省"}:
             return PROVINCE
         return value.strip()
 
+    def _safe_parse_int(self, value: str | None) -> int | None:
+        if not value or not value.strip():
+            return None
+        matched = re.findall(r"\d+", value)
+        if not matched:
+            return None
+        return int(matched[0])
+
     def _parse_positive_int(self, value: str | None, field_name: str) -> int:
         matched = re.findall(r"\d+", value or "")
         if not matched:
             raise ValueError(f"{field_name}格式不正确")
         return int(matched[0])
+
+    def _safe_infer_track(self, subject_combination: str | None) -> str | None:
+        if not subject_combination:
+            return None
+        normalized = subject_combination.replace(" ", "")
+        if "史" in normalized:
+            return "history"
+        if "物" in normalized:
+            return "physics"
+        return None
 
     def _infer_track(self, subject_combination: str) -> str:
         normalized = (subject_combination or "").replace(" ", "")
@@ -128,6 +214,160 @@ class GaokaoService:
         if rank is None:
             raise ValueError("未找到对应分数的吉林省位次，请手动填写位次")
         return int(rank)
+
+    def _lookup_rank(self, track: str, score: int) -> int | None:
+        rank = self.db.scalar(
+            select(GaokaoScoreRank.rank).where(
+                GaokaoScoreRank.year == YEAR,
+                GaokaoScoreRank.province == PROVINCE,
+                GaokaoScoreRank.track == track,
+                GaokaoScoreRank.score == score,
+            )
+        )
+        return int(rank) if rank is not None else None
+
+    def _build_consult_questions(
+        self,
+        payload: GaokaoConsultationRequest,
+        score: int | None,
+        rank: int | None,
+        track: str | None,
+    ) -> list[dict[str, Any]]:
+        questions: list[dict[str, Any]] = []
+        if score is None:
+            questions.append(
+                self._consult_question(
+                    "score",
+                    "score",
+                    "先把分数说清楚",
+                    "你家孩子今年大概多少分？这个不说明白，后面全是空谈。",
+                    "分数是所有判断的起点，没有分数就没有位置。",
+                    "例如：560",
+                    ["520-540", "540-560", "560-580", "580+"],
+                )
+            )
+        if not payload.subject_combination:
+            questions.append(
+                self._consult_question(
+                    "subject",
+                    "subjectCombination",
+                    "选科组合必须先锁定",
+                    "你到底是物理类还是历史类？别小看这个问题，这会直接决定整条路。",
+                    "物理类和历史类不是一套推荐逻辑。",
+                    "例如：物化生 / 史政地",
+                    ["物化生", "物化地", "物生地", "史政地", "史地生"],
+                )
+            )
+        if rank is None:
+            questions.append(
+                self._consult_question(
+                    "rank",
+                    "rank",
+                    "位次最好也给我",
+                    "如果你知道位次，直接告诉我。报考看位次，比看分数更硬。",
+                    "同分人数、年份难度都会影响分数含金量，位次更稳定。",
+                    "例如：12338",
+                    ["按系统自动换算即可"],
+                    required=False,
+                )
+            )
+
+        if not payload.preferred_majors:
+            title = "先说你想保什么"
+            question = (
+                "你更想保专业、保学校、还是保城市？如果专业还没想清楚，至少告诉我你是偏工科、偏医学、偏师范，还是偏财经法学。"
+            )
+            why = "张雪峰式问法里，这一步是灵魂追问。方向不清楚，冲稳保就会变成瞎填。"
+            questions.append(
+                self._consult_question(
+                    "major",
+                    "preferredMajors",
+                    title,
+                    question,
+                    why,
+                    "例如：计算机 / 临床医学 / 师范 / 法学 / 会计",
+                    ["计算机", "电气自动化", "临床医学", "师范", "法学", "会计财经"],
+                )
+            )
+
+        if not payload.preferred_cities:
+            questions.append(
+                self._consult_question(
+                    "city",
+                    "preferredCities",
+                    "城市要不要优先",
+                    "你能不能接受出省？你是想留东北，还是愿意去天津、北京、杭州、苏州这种资源更强的城市？",
+                    "城市会直接决定实习机会、就业半径和未来生活成本。",
+                    "例如：长春、沈阳、天津、杭州",
+                    ["留吉林省内", "东北优先", "能接受省外", "优先北京天津杭州"],
+                )
+            )
+
+        if not payload.career_preferences:
+            question = "你更在意什么：稳定编制、好就业、高薪上限、读研深造，还是考公考编？"
+            if track == "history":
+                question = "历史类我一定要追问一句：你更偏向考编、考公、读研，还是直接就业？这个决定专业完全不一样。"
+            questions.append(
+                self._consult_question(
+                    "career",
+                    "careerPreferences",
+                    "职业倾向必须问透",
+                    question,
+                    "同样一个分数，不同家庭和不同职业偏好，路径完全不是一回事。",
+                    "例如：稳定编制 / 工程技术 / 金融 / 考公",
+                    ["稳定编制", "工程技术", "高薪就业", "金融财经", "考公考编", "读研优先"],
+                )
+            )
+
+        if not payload.family_budget:
+            questions.append(
+                self._consult_question(
+                    "budget",
+                    "familyBudget",
+                    "家里能承受到哪一步",
+                    "我得问一句现实的：家里预算大概是什么水平？能接受民办和中外合作，还是优先公办？",
+                    "普通家庭做志愿，预算不是小问题，是底层约束。",
+                    "例如：优先公办 / 可接受中外合作",
+                    ["优先公办", "预算一般", "可接受中外合作", "学费不是主要问题"],
+                )
+            )
+
+        if not payload.notes:
+            questions.append(
+                self._consult_question(
+                    "notes",
+                    "notes",
+                    "最后补两个底线条件",
+                    "能不能接受调剂？要不要优先双一流？有没有强烈不想去的城市或专业？",
+                    "这些底线条件会直接决定最终方案能不能执行。",
+                    "例如：能接受省外和调剂，优先双一流",
+                    ["能接受调剂", "不接受调剂", "优先双一流", "不去太远城市"],
+                    required=False,
+                )
+            )
+        return questions[:6]
+
+    def _consult_question(
+        self,
+        question_id: str,
+        field: str,
+        title: str,
+        question: str,
+        why: str,
+        placeholder: str | None,
+        suggested_options: list[str],
+        required: bool = True,
+    ) -> dict[str, Any]:
+        return {
+            "id": question_id,
+            "field": field,
+            "title": title,
+            "question": question,
+            "why": why,
+            "placeholder": placeholder,
+            "required": required,
+            "suggested_options": suggested_options,
+        }
 
     def _get_control_lines(self, track: str) -> list[GaokaoControlLine]:
         return list(

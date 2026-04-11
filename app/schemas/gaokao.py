@@ -15,6 +15,38 @@ class GaokaoPlanRequest(BaseModel):
     notes: str | None = Field(default=None, max_length=1000)
 
 
+class GaokaoConsultationRequest(BaseModel):
+    province: str = Field(default="吉林省", max_length=64)
+    score: str | None = Field(default=None, max_length=32)
+    rank: str | None = Field(default=None, max_length=32)
+    subject_combination: str | None = Field(default=None, max_length=128)
+    preferred_majors: str | None = Field(default=None, max_length=255)
+    preferred_cities: str | None = Field(default=None, max_length=255)
+    career_preferences: str | None = Field(default=None, max_length=255)
+    family_budget: str | None = Field(default=None, max_length=128)
+    notes: str | None = Field(default=None, max_length=1000)
+
+
+class GaokaoConsultQuestion(BaseModel):
+    id: str
+    field: str
+    title: str
+    question: str
+    why: str
+    placeholder: str | None = None
+    required: bool = True
+    suggested_options: list[str] = Field(default_factory=list)
+
+
+class GaokaoConsultationResponse(BaseModel):
+    readiness: str
+    opening: str
+    inferred_track: str | None = None
+    quick_judgment: list[str] = Field(default_factory=list)
+    questions: list[GaokaoConsultQuestion] = Field(default_factory=list)
+    next_step: str
+
+
 class GaokaoControlLineItem(BaseModel):
     line_type: str
     score: int
