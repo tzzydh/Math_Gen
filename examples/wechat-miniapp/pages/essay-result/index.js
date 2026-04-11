@@ -1,11 +1,8 @@
 const { request } = require("../../utils/request");
-const { getApiBaseUrl } = require("../../utils/config");
+const { buildApiUrl } = require("../../utils/config");
 
 function getSubjectLabel(subject) {
-  if (subject === "english") {
-    return "英语作文";
-  }
-  return "语文作文";
+  return subject === "english" ? "英语作文" : "语文作文";
 }
 
 function getErrorMessage(error, fallback) {
@@ -28,6 +25,7 @@ Page({
     suggestionsText: "",
     loading: true,
     error: "",
+    downloading: false,
   },
 
   onLoad(options) {
@@ -51,6 +49,7 @@ Page({
         token: this.data.token,
         timeout: 30000,
       });
+
       this.setData({
         result,
         subjectLabel: getSubjectLabel(result.subject),
@@ -73,10 +72,15 @@ Page({
       wx.showToast({ title: "请先登录后重试", icon: "none" });
       return;
     }
+    if (this.data.downloading) {
+      return;
+    }
 
-    const downloadUrl = `${getApiBaseUrl()}/essays/${this.data.reviewId}/pdf-download`;
+    const downloadUrl = buildApiUrl(`/essays/${this.data.reviewId}/pdf-download`);
     let loadingShown = false;
+    this.setData({ downloading: true });
     try {
+      console.log("wx.downloadFile ->", downloadUrl);
       wx.showLoading({ title: "下载 PDF..." });
       loadingShown = true;
 
@@ -118,6 +122,7 @@ Page({
       console.error(error);
       wx.showToast({ title: getErrorMessage(error, "PDF 下载失败"), icon: "none" });
     } finally {
+      this.setData({ downloading: false });
       if (loadingShown) {
         wx.hideLoading();
       }
@@ -129,6 +134,8 @@ Page({
       wx.showToast({ title: "暂无链接", icon: "none" });
       return;
     }
-    wx.setClipboardData({ data: `${getApiBaseUrl()}/essays/${this.data.reviewId}/pdf-download` });
+    wx.setClipboardData({
+      data: buildApiUrl(`/essays/${this.data.reviewId}/pdf-download`),
+    });
   },
 });

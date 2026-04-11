@@ -14,8 +14,14 @@
 <view class="page" wx:elif="{{result}}">
   <view class="hero">
     <view class="hero-title">{{result.province}} · {{result.trackLabel}} · {{result.score}}分</view>
-    <view class="hero-subtitle">估算位次约 {{result.calculated_rank}} 名 · {{result.subject_combination}}</view>
+    <view class="hero-subtitle">估算位次 {{result.calculated_rank}} 名 · {{result.subject_combination}}</view>
     <view class="hero-meta">本次共生成 {{result.recommendationCount}} 个推荐方案</view>
+  </view>
+
+  <view class="actions-card">
+    <button class="download-btn" bindtap="handleDownloadPlanPdf" loading="{{downloading}}" disabled="{{downloading}}">
+      下载完整 PDF 报告
+    </button>
   </view>
 
   <view class="card">

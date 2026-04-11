@@ -7,7 +7,8 @@
 }
 
 .hero,
-.card {
+.card,
+.actions-card {
   padding: 30rpx;
   border-radius: 28rpx;
   background: #ffffff;
@@ -33,8 +34,19 @@
   line-height: 1.7;
 }
 
+.actions-card,
 .card {
   margin-top: 24rpx;
+}
+
+.download-btn {
+  height: 88rpx;
+  line-height: 88rpx;
+  border-radius: 999rpx;
+  background: linear-gradient(135deg, #16a34a 0%, #22c55e 100%);
+  color: #ffffff;
+  font-size: 30rpx;
+  font-weight: 700;
 }
 
 .warning-card {

@@ -1,4 +1,4 @@
-const { LOCAL_API_BASE_URL, getApiBaseUrl } = require("./config");
+const { LOCAL_API_BASE_URL, buildApiUrl, getApiBaseUrl } = require("./config");
 
 function sanitizeApiBaseUrl(url) {
   if (!url || typeof url !== "string") {
@@ -17,7 +17,10 @@ function sanitizeApiBaseUrl(url) {
 function request({ url, method = "GET", data, token, timeout = 60000 }) {
   return new Promise((resolve, reject) => {
     const apiBaseUrl = sanitizeApiBaseUrl(getApiBaseUrl());
-    const fullUrl = `${apiBaseUrl}${url}`;
+    const normalizedUrl = String(url || "")
+      .replace(apiBaseUrl, "")
+      .trim();
+    const fullUrl = buildApiUrl(normalizedUrl);
     console.log("wx.request ->", fullUrl);
     wx.request({
       url: fullUrl,

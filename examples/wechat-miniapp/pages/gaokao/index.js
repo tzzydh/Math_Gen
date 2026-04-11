@@ -25,6 +25,8 @@ Page({
     consultation: null,
     planningStatus: "",
     planningError: "",
+    consulting: false,
+    creatingPlan: false,
   },
 
   onShow() {
@@ -74,13 +76,18 @@ Page({
       wx.showToast({ title: "请先登录", icon: "none" });
       return;
     }
+    if (this.data.consulting) {
+      return;
+    }
 
     let loadingShown = false;
     this.setData({
       consultStatus: "processing",
       consultError: "",
       consultation: null,
+      consulting: true,
     });
+
     try {
       wx.showLoading({ title: "顾问问诊中..." });
       loadingShown = true;
@@ -91,6 +98,7 @@ Page({
         timeout: 30000,
         data: this.buildPayload(),
       });
+
       this.setData({
         consultation: result,
         consultStatus: result.readiness,
@@ -108,6 +116,7 @@ Page({
       });
       wx.showToast({ title: message, icon: "none" });
     } finally {
+      this.setData({ consulting: false });
       if (loadingShown) {
         wx.hideLoading();
       }
@@ -123,9 +132,17 @@ Page({
       wx.showToast({ title: "请先填写分数和选科", icon: "none" });
       return;
     }
+    if (this.data.creatingPlan) {
+      return;
+    }
 
     let loadingShown = false;
-    this.setData({ planningStatus: "processing", planningError: "" });
+    this.setData({
+      planningStatus: "processing",
+      planningError: "",
+      creatingPlan: true,
+    });
+
     try {
       wx.showLoading({ title: "生成方案中..." });
       loadingShown = true;
@@ -150,6 +167,7 @@ Page({
       });
       wx.showToast({ title: message, icon: "none" });
     } finally {
+      this.setData({ creatingPlan: false });
       if (loadingShown) {
         wx.hideLoading();
       }

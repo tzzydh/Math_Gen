@@ -1,6 +1,6 @@
 const { request } = require("../../utils/request");
 
-function wxChooseEssayImage() {
+function chooseEssayImage() {
   return new Promise((resolve, reject) => {
     wx.chooseImage({
       count: 1,
@@ -55,6 +55,8 @@ Page({
     essayRawText: "",
     essayStatus: "",
     essayError: "",
+    uploading: false,
+    reviewing: false,
   },
 
   onShow() {
@@ -67,10 +69,14 @@ Page({
       wx.showToast({ title: "请先登录", icon: "none" });
       return;
     }
+    if (this.data.uploading) {
+      return;
+    }
 
     let loadingShown = false;
+    this.setData({ uploading: true });
     try {
-      const file = await wxChooseEssayImage();
+      const file = await chooseEssayImage();
       wx.showLoading({ title: "上传中..." });
       loadingShown = true;
 
@@ -107,10 +113,13 @@ Page({
 
       wx.showToast({ title: "上传成功", icon: "success" });
     } catch (error) {
-      if (isUserCancelled(error)) return;
+      if (isUserCancelled(error)) {
+        return;
+      }
       console.error(error);
       wx.showToast({ title: getErrorMessage(error, "上传失败"), icon: "none" });
     } finally {
+      this.setData({ uploading: false });
       if (loadingShown) {
         wx.hideLoading();
       }
@@ -122,13 +131,21 @@ Page({
       wx.showToast({ title: "请先上传作文截图", icon: "none" });
       return;
     }
+    if (this.data.reviewing) {
+      return;
+    }
 
     let loadingShown = false;
-    this.setData({ essayStatus: "processing", essayError: "" });
+    this.setData({
+      essayStatus: "processing",
+      essayError: "",
+      reviewing: true,
+    });
 
     try {
       wx.showLoading({ title: "批改中..." });
       loadingShown = true;
+
       const payload = {
         asset_id: this.data.essayAssetId,
         subject: "chinese",
@@ -155,9 +172,13 @@ Page({
     } catch (error) {
       console.error(error);
       const message = getErrorMessage(error, "批改失败");
-      this.setData({ essayStatus: "failed", essayError: message });
+      this.setData({
+        essayStatus: "failed",
+        essayError: message,
+      });
       wx.showToast({ title: message, icon: "none" });
     } finally {
+      this.setData({ reviewing: false });
       if (loadingShown) {
         wx.hideLoading();
       }

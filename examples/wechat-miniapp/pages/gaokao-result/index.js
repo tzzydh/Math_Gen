@@ -1,4 +1,5 @@
 const { request } = require("../../utils/request");
+const { buildApiUrl } = require("../../utils/config");
 
 const TRACK_LABELS = {
   physics: "物理类",
@@ -38,6 +39,7 @@ Page({
     result: null,
     loading: true,
     error: "",
+    downloading: false,
   },
 
   onLoad(options) {
@@ -98,5 +100,67 @@ Page({
         items: recommendations.filter((item) => item.bucket === key),
       }))
       .filter((section) => section.items.length);
+  },
+
+  async handleDownloadPlanPdf() {
+    if (!this.data.planId || !this.data.token) {
+      wx.showToast({ title: "请先登录后重试", icon: "none" });
+      return;
+    }
+    if (this.data.downloading) {
+      return;
+    }
+
+    const downloadUrl = buildApiUrl(`/gaokao/${this.data.planId}/pdf-download`);
+    let loadingShown = false;
+    this.setData({ downloading: true });
+    try {
+      console.log("wx.downloadFile ->", downloadUrl);
+      wx.showLoading({ title: "下载报告中..." });
+      loadingShown = true;
+
+      const downloadRes = await new Promise((resolve, reject) => {
+        wx.downloadFile({
+          url: downloadUrl,
+          header: {
+            Authorization: `Bearer ${this.data.token}`,
+          },
+          success: resolve,
+          fail: reject,
+        });
+      });
+
+      if (!(downloadRes.statusCode >= 200 && downloadRes.statusCode < 300)) {
+        throw downloadRes;
+      }
+
+      const savedFile = await new Promise((resolve, reject) => {
+        wx.saveFile({
+          tempFilePath: downloadRes.tempFilePath,
+          success: resolve,
+          fail: reject,
+        });
+      }).catch(() => ({ savedFilePath: downloadRes.tempFilePath }));
+
+      await new Promise((resolve, reject) => {
+        wx.openDocument({
+          filePath: savedFile.savedFilePath || downloadRes.tempFilePath,
+          fileType: "pdf",
+          showMenu: true,
+          success: resolve,
+          fail: reject,
+        });
+      });
+
+      wx.showToast({ title: "报告已打开", icon: "success" });
+    } catch (error) {
+      console.error(error);
+      wx.showToast({ title: getErrorMessage(error, "下载失败"), icon: "none" });
+    } finally {
+      this.setData({ downloading: false });
+      if (loadingShown) {
+        wx.hideLoading();
+      }
+    }
   },
 });

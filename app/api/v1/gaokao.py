@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi.responses import Response
 from sqlalchemy import desc, select
 from sqlalchemy.orm import Session
 
@@ -15,6 +16,7 @@ from app.schemas.gaokao import (
     GaokaoPlanSummary,
     GaokaoRecommendation,
 )
+from app.services.gaokao_report_service import GaokaoReportService
 from app.services.gaokao_service import GaokaoService
 
 router = APIRouter()
@@ -143,6 +145,42 @@ def get_gaokao_plan(
             detail="gaokao plan not found",
         )
     return _serialize_plan(plan)
+
+
+@router.get("/{plan_id}/pdf-download")
+def download_gaokao_plan_pdf(
+    plan_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> Response:
+    plan = db.scalar(
+        select(GaokaoPlan).where(
+            GaokaoPlan.id == plan_id,
+            GaokaoPlan.user_id == current_user.id,
+        )
+    )
+    if plan is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="gaokao plan not found",
+        )
+
+    try:
+        pdf_bytes = GaokaoReportService().build_pdf_bytes(plan)
+    except Exception as exc:
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail=str(exc),
+        ) from exc
+
+    filename = f"gaokao-plan-{plan.id}.pdf"
+    return Response(
+        content=pdf_bytes,
+        media_type="application/pdf",
+        headers={
+            "Content-Disposition": f'attachment; filename="{filename}"',
+        },
+    )
 
 
 def _serialize_plan(plan: GaokaoPlan) -> GaokaoPlanResponse:
