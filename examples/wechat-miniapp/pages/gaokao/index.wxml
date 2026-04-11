@@ -1,26 +1,61 @@
 <view class="page">
-  <view class="header-card">
-    <view class="header-title">吉林省高考志愿顾问</view>
-    <view class="header-subtitle">
-      先做顾问问诊，再生成最终方案。现在支持“规则打底 + 大模型深度分析”的混合模式，也支持纯规则模式。
+  <view class="hero-card">
+    <view class="hero-eyebrow">吉林高考志愿系统</view>
+    <view class="hero-title">先问清条件，再生成最终方案</view>
+    <view class="hero-subtitle">
+      这页不再做成长表单。我们把问诊拆成 3 个模块：基础建档、顾问追问、最终方案，你可以直接点进对应模块，不会因为往下滑而丢信息。
     </view>
-    <view class="header-meta">登录状态：{{token ? '已登录' : '未登录'}}</view>
+    <view class="hero-meta">
+      <view class="hero-pill">当前省份：{{province}}</view>
+      <view class="hero-pill">登录状态：{{token ? '已登录' : '未登录'}}</view>
+    </view>
   </view>
 
-  <view class="card">
-    <view class="section-title">第一步：基础信息</view>
-
-    <view class="field-group">
-      <view class="field-label">当前版本</view>
-      <view class="static-field">仅支持吉林省</view>
+  <view class="step-rail">
+    <view
+      wx:for="{{stepOptions}}"
+      wx:key="key"
+      class="step-card {{activeModule === item.key ? 'step-card-active' : ''}}"
+      data-module="{{item.key}}"
+      bindtap="handleModuleTap"
+    >
+      <view class="step-label">{{item.label}}</view>
+      <view class="step-caption">{{item.caption}}</view>
     </view>
+  </view>
+
+  <view class="summary-card">
+    <view class="summary-title">当前建档摘要</view>
+    <view class="summary-grid">
+      <view class="summary-cell">
+        <view class="summary-k">分数</view>
+        <view class="summary-v">{{score || '未填写'}}</view>
+      </view>
+      <view class="summary-cell">
+        <view class="summary-k">位次</view>
+        <view class="summary-v">{{rank || '自动换算'}}</view>
+      </view>
+      <view class="summary-cell">
+        <view class="summary-k">选科</view>
+        <view class="summary-v">{{subjectCombination || '未填写'}}</view>
+      </view>
+      <view class="summary-cell">
+        <view class="summary-k">状态</view>
+        <view class="summary-v">{{consultStatus || planningStatus || '待开始'}}</view>
+      </view>
+    </view>
+  </view>
+
+  <view wx:if="{{activeModule === 'basic'}}" class="panel-card">
+    <view class="panel-title">模块一：基础建档</view>
+    <view class="panel-desc">先锁定最重要的 3 个硬条件：分数、位次、选科。位次可以不填，系统会自动换算。</view>
 
     <view class="two-col">
       <view class="field-group">
         <view class="field-label">高考分数</view>
         <input
           class="field-input"
-          placeholder="例如：560"
+          placeholder="例如：567"
           placeholder-class="field-placeholder"
           data-field="score"
           value="{{score}}"
@@ -53,7 +88,7 @@
       />
     </view>
 
-    <button class="secondary-btn" bindtap="handleStartConsultation" disabled="{{!token}}" loading="{{consulting}}">
+    <button class="primary-btn" bindtap="handleStartConsultation" disabled="{{!token}}" loading="{{consulting}}">
       开始顾问问诊
     </button>
     <view class="meta-line">问诊状态：{{consultStatus || '-'}}</view>
@@ -64,44 +99,54 @@
     </view>
   </view>
 
-  <view wx:if="{{consultation}}" class="card consult-card">
-    <view class="section-title">第二步：顾问追问</view>
-    <view class="consult-opening">{{consultation.opening}}</view>
-    <view wx:for="{{consultation.quick_judgment}}" wx:key="index" wx:for-item="judgment" class="list-item">
-      <view class="bullet"></view>
-      <view class="list-text">{{judgment}}</view>
+  <view wx:if="{{activeModule === 'consult'}}" class="panel-card consult-card">
+    <view class="panel-title">模块二：顾问追问</view>
+    <view class="panel-desc">这一步只处理关键信息补齐。每个问题点一个最贴近的答案就行，系统会自动回填到最终方案里。</view>
+
+    <view wx:if="{{!consultation}}" class="empty-card">
+      <view class="empty-title">还没有生成追问</view>
+      <view class="empty-text">先在“基础建档”里填写分数和选科，再点击“开始顾问问诊”。</view>
     </view>
 
-    <view class="next-step">{{consultation.next_step}}</view>
+    <view wx:if="{{consultation}}">
+      <view class="consult-opening">{{consultation.opening}}</view>
+      <view wx:for="{{consultation.quick_judgment}}" wx:key="index" wx:for-item="judgment" class="list-item">
+        <view class="bullet"></view>
+        <view class="list-text">{{judgment}}</view>
+      </view>
 
-    <view wx:for="{{consultation.questions}}" wx:key="id" wx:for-item="question" class="question-card">
-      <view class="question-top">
-        <view class="question-title">{{index + 1}}. {{question.title}}</view>
-        <view class="question-badge" wx:if="{{question.required}}">必答</view>
-      </view>
-      <view class="question-text">{{question.question}}</view>
-      <view class="question-why">{{question.why}}</view>
-      <view class="chip-row" wx:if="{{question.suggested_options.length}}">
-        <view
-          wx:for="{{question.suggested_options}}"
-          wx:key="index"
-          wx:for-item="option"
-          class="chip {{question.currentValue === option ? 'chip-active' : ''}}"
-          data-field="{{question.field}}"
-          data-value="{{option}}"
-          bindtap="handleQuestionOptionTap"
-        >
-          {{option}}
+      <view class="next-step">{{consultation.next_step}}</view>
+
+      <view wx:for="{{consultation.questions}}" wx:key="id" wx:for-item="question" class="question-card">
+        <view class="question-top">
+          <view class="question-title">{{index + 1}}. {{question.title}}</view>
+          <view class="question-badge" wx:if="{{question.required}}">必答</view>
         </view>
-      </view>
-      <view class="selected-hint" wx:if="{{question.currentValue}}">
-        当前已选：{{question.currentValue}}
+        <view class="question-text">{{question.question}}</view>
+        <view class="question-why">{{question.why}}</view>
+        <view class="chip-row" wx:if="{{question.suggested_options.length}}">
+          <view
+            wx:for="{{question.suggested_options}}"
+            wx:key="index"
+            wx:for-item="option"
+            class="chip {{question.currentValue === option ? 'chip-active' : ''}}"
+            data-field="{{question.field}}"
+            data-value="{{option}}"
+            bindtap="handleQuestionOptionTap"
+          >
+            {{option}}
+          </view>
+        </view>
+        <view class="selected-hint" wx:if="{{question.currentValue}}">
+          当前已选：{{question.currentValue}}
+        </view>
       </view>
     </view>
   </view>
 
-  <view class="card">
-    <view class="section-title">第三步：补全信息并生成最终方案</view>
+  <view wx:if="{{activeModule === 'final'}}" class="panel-card">
+    <view class="panel-title">模块三：最终方案</view>
+    <view class="panel-desc">这一块只放真正影响结果的偏好项。你可以反复切换顾问模式、模型和偏好，不会影响前面已经建好的基础档案。</view>
 
     <view class="field-group">
       <view class="field-label">顾问模式</view>
@@ -116,7 +161,7 @@
           {{item.label}}
         </view>
       </view>
-      <view class="question-why">混合增强：规则先出硬结论，再由大模型做顾问润色与深度分析。</view>
+      <view class="question-why">混合增强：规则引擎先给硬结论，再由大模型做顾问级润色与深度分析。</view>
     </view>
 
     <view class="field-group">
@@ -146,7 +191,7 @@
       <view class="field-label">意向专业</view>
       <input
         class="field-input"
-        placeholder="例如：计算机、临床医学、法学"
+        placeholder="例如：电子信息、计算机、临床医学、法学"
         placeholder-class="field-placeholder"
         data-field="preferredMajors"
         value="{{preferredMajors}}"
@@ -170,7 +215,7 @@
       <view class="field-label">职业倾向</view>
       <input
         class="field-input"
-        placeholder="例如：稳定编制 / 工程技术 / 考公考编 / 金融"
+        placeholder="例如：工程技术 / 稳定编制 / 高薪就业 / 读研优先"
         placeholder-class="field-placeholder"
         data-field="careerPreferences"
         value="{{careerPreferences}}"
@@ -182,7 +227,7 @@
       <view class="field-label">家庭预算</view>
       <input
         class="field-input"
-        placeholder="例如：优先公办 / 可接受中外合作"
+        placeholder="例如：优先公办 / 预算一般 / 学费不是主要问题"
         placeholder-class="field-placeholder"
         data-field="familyBudget"
         value="{{familyBudget}}"
@@ -194,7 +239,7 @@
       <view class="field-label">补充说明</view>
       <textarea
         class="notes-input"
-        placeholder="例如：是否接受省外、是否优先双一流、是否接受调剂"
+        placeholder="例如：接受调剂、后期考研、优先双一流、不能接受外省"
         placeholder-class="field-placeholder"
         data-field="notes"
         value="{{notes}}"
@@ -205,7 +250,6 @@
     <button class="primary-btn" bindtap="handleCreatePlan" disabled="{{!token}}" loading="{{creatingPlan}}">
       生成最终志愿方案
     </button>
-
     <view class="meta-line">规划状态：{{planningStatus || '-'}}</view>
 
     <view wx:if="{{planningError}}" class="result-block error-block">

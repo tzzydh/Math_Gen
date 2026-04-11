@@ -1,54 +1,71 @@
 <view class="page">
   <view class="hero">
-    <view class="eyebrow">AI 学习服务台</view>
-    <view class="hero-title">高考提分与升学决策中心</view>
+    <view class="hero-eyebrow">AI 提分助手</view>
+    <view class="hero-title">诊断、批改、报考，统一放进一个学习决策中枢</view>
     <view class="hero-subtitle">
-      数学诊断、语文作文批改、英语作文批改、高考志愿策略四条主线独立运行，适合直接做产品演示与继续商业化迭代。
+      数学诊断、语文作文、英语作文、高考志愿四条主线独立运行，但又共享登录、报告、下载与历史记录能力，适合直接作为商业化产品底座继续打磨。
     </view>
-    <view class="hero-status">
-      <view class="status-pill">登录状态：{{token ? '已登录' : '未登录'}}</view>
-      <view class="status-pill">当前用户：{{userLabel}}</view>
+    <view class="hero-pills">
+      <view class="hero-pill">登录状态：{{token ? '已登录' : '未登录'}}</view>
+      <view class="hero-pill">当前用户：{{userLabel}}</view>
     </view>
     <button class="login-btn" bindtap="handleWechatLogin">
-      {{token ? '刷新登录态' : '微信一键登录'}}
+      {{token ? '刷新登录状态' : '微信一键登录'}}
     </button>
   </view>
 
+  <view class="overview-card">
+    <view class="overview-title">核心模块</view>
+    <view class="overview-subtitle">不再靠长页面堆功能。每个模块都能直接点进去独立处理，避免信息被滚动淹没。</view>
+  </view>
+
   <view class="module-grid">
-    <view class="module-card math-card">
-      <view class="module-tag">数学</view>
-      <view class="module-title">AI 数学靶向诊断</view>
-      <view class="module-desc">
-        上传题目截图，自动 OCR、知识点归类与章节定位，快速拿到提分方向。
+    <view class="module-card module-math">
+      <view class="module-top">
+        <view class="module-tag">数学</view>
+        <view class="module-kicker">靶向诊断</view>
       </view>
-      <button class="module-btn math-btn" bindtap="goMathPage">进入数学诊断</button>
+      <view class="module-title">AI 数学提分诊断</view>
+      <view class="module-desc">
+        上传题目截图后自动 OCR、知识点归类、章节定位，快速找到最值得补的方向。
+      </view>
+      <button class="module-btn math-btn" bindtap="goMathPage">进入数学模块</button>
     </view>
 
-    <view class="module-card chinese-card">
-      <view class="module-tag">语文</view>
+    <view class="module-card module-chinese">
+      <view class="module-top">
+        <view class="module-tag">语文</view>
+        <view class="module-kicker">作文批改</view>
+      </view>
       <view class="module-title">AI 语文作文批改</view>
       <view class="module-desc">
-        上传作文截图，自动识别原文、批改润色并生成带红批标注的 PDF。
+        自动识别作文截图、润色修改、生成带红批标注的 PDF，适合直接给学生做成果交付。
       </view>
-      <button class="module-btn chinese-btn" bindtap="goChineseEssayPage">进入语文作文</button>
+      <button class="module-btn chinese-btn" bindtap="goChineseEssayPage">进入语文模块</button>
     </view>
 
-    <view class="module-card english-card">
-      <view class="module-tag">英语</view>
+    <view class="module-card module-english">
+      <view class="module-top">
+        <view class="module-tag">英语</view>
+        <view class="module-kicker">中英对照</view>
+      </view>
       <view class="module-title">AI 英语作文批改</view>
       <view class="module-desc">
-        独立处理英语作文场景，保留原文、优化表达、给出评分与修改建议。
+        英文润色、中文对照讲解、评分与修改建议一体化输出，适合做高频练习反馈。
       </view>
-      <button class="module-btn english-btn" bindtap="goEnglishEssayPage">进入英语作文</button>
+      <button class="module-btn english-btn" bindtap="goEnglishEssayPage">进入英语模块</button>
     </view>
 
-    <view class="module-card gaokao-card">
-      <view class="module-tag">报考</view>
-      <view class="module-title">高考志愿策略规划</view>
-      <view class="module-desc">
-        基于张雪峰式报考框架，输出志愿策略、风险提示与专业院校组合建议。
+    <view class="module-card module-gaokao">
+      <view class="module-top">
+        <view class="module-tag">报考</view>
+        <view class="module-kicker">吉林专版</view>
       </view>
-      <button class="module-btn gaokao-btn" bindtap="goGaokaoPage">进入报考规划</button>
+      <view class="module-title">AI 高考志愿顾问</view>
+      <view class="module-desc">
+        先问诊、后出方案，支持规则引擎与大模型混合分析，并生成完整 PDF 报告。
+      </view>
+      <button class="module-btn gaokao-btn" bindtap="goGaokaoPage">进入报考模块</button>
     </view>
   </view>
 </view>

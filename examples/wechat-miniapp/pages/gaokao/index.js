@@ -2,7 +2,7 @@ const { request } = require("../../utils/request");
 
 const ADVISOR_MODE_OPTIONS = [
   { label: "混合增强", value: "hybrid" },
-  { label: "纯规则", value: "rules_only" },
+  { label: "纯规则模式", value: "rules_only" },
 ];
 
 const ADVISOR_MODEL_OPTIONS = [
@@ -10,6 +10,12 @@ const ADVISOR_MODEL_OPTIONS = [
   { label: "GLM-4.5-Air", value: "GLM-4.5-Air" },
   { label: "GLM-4.5", value: "GLM-4.5" },
   { label: "gpt-4o-mini", value: "gpt-4o-mini" },
+];
+
+const STEP_OPTIONS = [
+  { key: "basic", label: "基础建档", caption: "分数 / 位次 / 选科" },
+  { key: "consult", label: "顾问问诊", caption: "追问关键条件" },
+  { key: "final", label: "最终方案", caption: "模式 / 偏好 / 生成报告" },
 ];
 
 function getErrorMessage(error, fallback) {
@@ -31,6 +37,8 @@ Page({
   data: {
     token: "",
     province: "吉林省",
+    activeModule: "basic",
+    stepOptions: STEP_OPTIONS,
     score: "",
     rank: "",
     subjectCombination: "",
@@ -88,6 +96,12 @@ Page({
       token,
       province: "吉林省",
     });
+  },
+
+  handleModuleTap(event) {
+    const moduleKey = event.currentTarget.dataset.module;
+    if (!moduleKey) return;
+    this.setData({ activeModule: moduleKey });
   },
 
   handleFieldInput(event) {
@@ -171,9 +185,10 @@ Page({
       this.setData({
         consultation: this.decorateConsultation(result),
         consultStatus: result.readiness,
+        activeModule: result.readiness === "ready" ? "final" : "consult",
       });
       wx.showToast({
-        title: result.readiness === "ready" ? "可以生成方案了" : "已生成追问",
+        title: result.readiness === "ready" ? "可以直接生成方案" : "已生成顾问追问",
         icon: "success",
       });
     } catch (error) {
@@ -182,6 +197,7 @@ Page({
       this.setData({
         consultStatus: "failed",
         consultError: message,
+        activeModule: "basic",
       });
       wx.showToast({ title: message, icon: "none" });
     } finally {
@@ -233,6 +249,7 @@ Page({
       this.setData({
         planningStatus: "failed",
         planningError: message,
+        activeModule: "final",
       });
       wx.showToast({ title: message, icon: "none" });
     } finally {
