@@ -1,6 +1,6 @@
 <view class="page" wx:if="{{loading}}">
   <view class="card">
-    <view class="section-title">正在加载志愿结果...</view>
+    <view class="section-title">正在生成志愿报告...</view>
   </view>
 </view>
 
@@ -15,16 +15,25 @@
   <view class="hero">
     <view class="hero-title">{{result.province}} · {{result.trackLabel}} · {{result.score}}分</view>
     <view class="hero-subtitle">估算位次约 {{result.calculated_rank}} 名 · {{result.subject_combination}}</view>
+    <view class="hero-meta">本次共生成 {{result.recommendationCount}} 个推荐方案</view>
   </view>
 
   <view class="card">
-    <view class="section-title">整体判断</view>
+    <view class="section-title">顾问结论</view>
     <view class="text-block preserve">{{result.summary}}</view>
   </view>
 
   <view class="card">
     <view class="section-title">关键定位</view>
     <view class="stats-row">
+      <view class="stat-pill">
+        <view class="stat-label">高考分数</view>
+        <view class="stat-value">{{result.score}}分</view>
+      </view>
+      <view class="stat-pill">
+        <view class="stat-label">估算位次</view>
+        <view class="stat-value">{{result.calculated_rank}}名</view>
+      </view>
       <view class="stat-pill" wx:for="{{result.controlLines}}" wx:key="line_type">
         <view class="stat-label">{{item.label}}</view>
         <view class="stat-value">{{item.score}}分</view>
@@ -33,10 +42,34 @@
   </view>
 
   <view class="card">
-    <view class="section-title">先顾方向</view>
+    <view class="section-title">张雪峰式判断</view>
+    <view wx:for="{{result.advisor_takeaways}}" wx:key="index" class="list-item">
+      <view class="bullet"></view>
+      <view class="list-text">{{item}}</view>
+    </view>
+  </view>
+
+  <view class="card">
+    <view class="section-title">方向判断</view>
     <view wx:for="{{result.direction_cards}}" wx:key="title" class="direction-card">
       <view class="direction-title">{{item.title}}</view>
       <view class="text-block">{{item.content}}</view>
+    </view>
+  </view>
+
+  <view class="card">
+    <view class="section-title">择校逻辑</view>
+    <view wx:for="{{result.school_choice_logic}}" wx:key="index" class="list-item">
+      <view class="bullet"></view>
+      <view class="list-text">{{item}}</view>
+    </view>
+  </view>
+
+  <view class="card">
+    <view class="section-title">专业提醒</view>
+    <view wx:for="{{result.major_observations}}" wx:key="index" class="list-item">
+      <view class="bullet"></view>
+      <view class="list-text">{{item}}</view>
     </view>
   </view>
 
@@ -57,6 +90,14 @@
   </view>
 
   <view class="card">
+    <view class="section-title">执行清单</view>
+    <view wx:for="{{result.execution_checklist}}" wx:key="index" class="list-item">
+      <view class="bullet"></view>
+      <view class="list-text">{{item}}</view>
+    </view>
+  </view>
+
+  <view class="card">
     <view class="section-title">吉林数据版推荐</view>
     <view wx:for="{{result.bucketGroups}}" wx:key="key" class="bucket-block">
       <view class="bucket-title">{{item.title}}</view>
@@ -65,9 +106,19 @@
           <view class="recommendation-title">{{item.school}} · {{item.major}}</view>
           <view class="score-pill">{{item.bucketLabel}}</view>
         </view>
-        <view class="recommendation-meta">{{item.city}}<text wx:if="{{item.school_level}}"> · {{item.school_level}}</text></view>
-        <view class="recommendation-meta">2025最低分 {{item.min_score}}分<text wx:if="{{item.min_rank}}"> · 最低位次 {{item.min_rank}}</text></view>
+        <view class="recommendation-meta">
+          {{item.city}}
+          <text wx:if="{{item.school_level}}"> · {{item.school_level}}</text>
+        </view>
+        <view class="recommendation-meta">
+          2025最低分 {{item.min_score}}分
+          <text wx:if="{{item.min_rank}}"> · 最低位次 {{item.min_rank}}</text>
+        </view>
+        <view class="tag-row" wx:if="{{item.decision_tags.length}}">
+          <view class="tag-pill" wx:for="{{item.decision_tags}}" wx:key="index">{{item}}</view>
+        </view>
         <view class="text-block">{{item.reason}}</view>
+        <view class="major-comment" wx:if="{{item.major_comment}}">{{item.major_comment}}</view>
       </view>
     </view>
   </view>

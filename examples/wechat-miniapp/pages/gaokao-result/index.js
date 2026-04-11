@@ -17,6 +17,12 @@ const BUCKET_LABELS = {
   bao: "保",
 };
 
+const BUCKET_TITLES = {
+  chong: "冲一冲",
+  wen: "稳一稳",
+  bao: "保一保",
+};
+
 function getErrorMessage(error, fallback) {
   if (!error) return fallback;
   if (typeof error === "string") return error;
@@ -71,8 +77,8 @@ Page({
           ...result,
           trackLabel: TRACK_LABELS[result.track] || result.track,
           controlLines,
-          recommendations,
           bucketGroups: this.groupByBucket(recommendations),
+          recommendationCount: recommendations.length,
         },
       });
     } catch (error) {
@@ -85,14 +91,12 @@ Page({
   },
 
   groupByBucket(recommendations) {
-    const sections = [
-      { key: "chong", title: "冲一冲", items: [] },
-      { key: "wen", title: "稳一稳", items: [] },
-      { key: "bao", title: "保一保", items: [] },
-    ];
-    sections.forEach((section) => {
-      section.items = recommendations.filter((item) => item.bucket === section.key);
-    });
-    return sections.filter((section) => section.items.length);
+    return ["chong", "wen", "bao"]
+      .map((key) => ({
+        key,
+        title: BUCKET_TITLES[key],
+        items: recommendations.filter((item) => item.bucket === key),
+      }))
+      .filter((section) => section.items.length);
   },
 });

@@ -34,6 +34,8 @@ class GaokaoRecommendation(BaseModel):
     fit_score: int
     risk_level: str
     reason: str
+    major_comment: str | None = None
+    decision_tags: list[str] = Field(default_factory=list)
     data_year: int
     min_score: int
     min_rank: int | None = None
@@ -52,8 +54,12 @@ class GaokaoPlanResponse(BaseModel):
     summary: str
     direction_advice: list[str] = Field(default_factory=list)
     direction_cards: list[GaokaoDirectionCard] = Field(default_factory=list)
+    advisor_takeaways: list[str] = Field(default_factory=list)
+    school_choice_logic: list[str] = Field(default_factory=list)
+    major_observations: list[str] = Field(default_factory=list)
     strategy: list[str] = Field(default_factory=list)
     risk_notes: list[str] = Field(default_factory=list)
+    execution_checklist: list[str] = Field(default_factory=list)
     control_lines: list[GaokaoControlLineItem] = Field(default_factory=list)
     recommendations: list[GaokaoRecommendation] = Field(default_factory=list)
     created_at: datetime
