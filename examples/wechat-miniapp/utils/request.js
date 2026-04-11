@@ -1,10 +1,26 @@
-const { getApiBaseUrl } = require("./config");
+const { LOCAL_API_BASE_URL, getApiBaseUrl } = require("./config");
+
+function sanitizeApiBaseUrl(url) {
+  if (!url || typeof url !== "string") {
+    return LOCAL_API_BASE_URL;
+  }
+  if (
+    url.includes("localhost") ||
+    url.includes("127.0.0.1") ||
+    url.includes("yourdomain.com")
+  ) {
+    return LOCAL_API_BASE_URL;
+  }
+  return url;
+}
 
 function request({ url, method = "GET", data, token, timeout = 60000 }) {
   return new Promise((resolve, reject) => {
-    const apiBaseUrl = getApiBaseUrl();
+    const apiBaseUrl = sanitizeApiBaseUrl(getApiBaseUrl());
+    const fullUrl = `${apiBaseUrl}${url}`;
+    console.log("wx.request ->", fullUrl);
     wx.request({
-      url: `${apiBaseUrl}${url}`,
+      url: fullUrl,
       method,
       data,
       timeout,

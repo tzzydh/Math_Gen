@@ -1,5 +1,5 @@
 const { request } = require("../../utils/request");
-const { API_BASE_URL } = require("../../utils/config");
+const { getApiBaseUrl } = require("../../utils/config");
 
 function getSubjectLabel(subject) {
   if (subject === "english") {
@@ -13,6 +13,7 @@ function getErrorMessage(error, fallback) {
   if (typeof error === "string") return error;
   if (error.detail) return error.detail;
   if (error.errMsg) return error.errMsg;
+  if (error.statusCode) return `请求失败(${error.statusCode})`;
   return fallback;
 }
 
@@ -73,9 +74,12 @@ Page({
       return;
     }
 
-    const downloadUrl = `${API_BASE_URL}/essays/${this.data.reviewId}/pdf-download`;
+    const downloadUrl = `${getApiBaseUrl()}/essays/${this.data.reviewId}/pdf-download`;
+    let loadingShown = false;
     try {
       wx.showLoading({ title: "下载 PDF..." });
+      loadingShown = true;
+
       const downloadRes = await new Promise((resolve, reject) => {
         wx.downloadFile({
           url: downloadUrl,
@@ -114,7 +118,9 @@ Page({
       console.error(error);
       wx.showToast({ title: getErrorMessage(error, "PDF 下载失败"), icon: "none" });
     } finally {
-      wx.hideLoading();
+      if (loadingShown) {
+        wx.hideLoading();
+      }
     }
   },
 
@@ -123,7 +129,6 @@ Page({
       wx.showToast({ title: "暂无链接", icon: "none" });
       return;
     }
-    const downloadUrl = `${API_BASE_URL}/essays/${this.data.reviewId}/pdf-download`;
-    wx.setClipboardData({ data: downloadUrl });
+    wx.setClipboardData({ data: `${getApiBaseUrl()}/essays/${this.data.reviewId}/pdf-download` });
   },
 });

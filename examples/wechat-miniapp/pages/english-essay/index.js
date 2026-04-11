@@ -55,15 +55,11 @@ Page({
     essayRawText: "",
     essayStatus: "",
     essayError: "",
-    recentReviews: [],
   },
 
   onShow() {
     const token = wx.getStorageSync("access_token") || "";
     this.setData({ token });
-    if (token) {
-      this.loadRecentReviews();
-    }
   },
 
   async handleChooseEssayAndUpload() {
@@ -72,9 +68,11 @@ Page({
       return;
     }
 
+    let loadingShown = false;
     try {
       const file = await wxChooseEssayImage();
       wx.showLoading({ title: "Uploading..." });
+      loadingShown = true;
 
       const presign = await request({
         url: "/uploads/presign",
@@ -113,7 +111,9 @@ Page({
       console.error(error);
       wx.showToast({ title: getErrorMessage(error, "Upload failed"), icon: "none" });
     } finally {
-      wx.hideLoading();
+      if (loadingShown) {
+        wx.hideLoading();
+      }
     }
   },
 
@@ -123,10 +123,12 @@ Page({
       return;
     }
 
+    let loadingShown = false;
     this.setData({ essayStatus: "processing", essayError: "" });
 
     try {
       wx.showLoading({ title: "Reviewing..." });
+      loadingShown = true;
       const payload = {
         asset_id: this.data.essayAssetId,
         subject: "english",
@@ -147,36 +149,19 @@ Page({
       });
 
       this.setData({ essayStatus: "completed" });
-      this.loadRecentReviews();
-      wx.navigateTo({ url: `/pages/essay-result/index?reviewId=${result.review_id}` });
+      wx.navigateTo({
+        url: `/pages/essay-result/index?reviewId=${result.review_id}`,
+      });
     } catch (error) {
       console.error(error);
       const message = getErrorMessage(error, "Review failed");
       this.setData({ essayStatus: "failed", essayError: message });
       wx.showToast({ title: message, icon: "none" });
     } finally {
-      wx.hideLoading();
+      if (loadingShown) {
+        wx.hideLoading();
+      }
     }
-  },
-
-  async loadRecentReviews() {
-    try {
-      const recentReviews = await request({
-        url: "/essays?subject=english",
-        method: "GET",
-        token: this.data.token,
-        timeout: 30000,
-      });
-      this.setData({ recentReviews: recentReviews || [] });
-    } catch (error) {
-      console.error(error);
-    }
-  },
-
-  openReviewDetail(event) {
-    const reviewId = event.currentTarget.dataset.reviewId;
-    if (!reviewId) return;
-    wx.navigateTo({ url: `/pages/essay-result/index?reviewId=${reviewId}` });
   },
 
   handleEssayTitleInput(event) {

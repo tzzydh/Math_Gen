@@ -27,10 +27,10 @@ Page({
 
   onShow() {
     const token = wx.getStorageSync("access_token") || "";
-    this.setData({ token, province: "吉林省" });
-    if (token) {
-      this.loadRecentPlans();
-    }
+    this.setData({
+      token,
+      province: "吉林省",
+    });
   },
 
   handleFieldInput(event) {
@@ -48,9 +48,11 @@ Page({
       return;
     }
 
+    let loadingShown = false;
     this.setData({ planningStatus: "processing", planningError: "" });
     try {
       wx.showLoading({ title: "生成方案中..." });
+      loadingShown = true;
       const result = await request({
         url: "/gaokao/plan",
         method: "POST",
@@ -70,35 +72,21 @@ Page({
       });
 
       this.setData({ planningStatus: "completed" });
-      this.loadRecentPlans();
-      wx.navigateTo({ url: `/pages/gaokao-result/index?planId=${result.plan_id}` });
+      wx.navigateTo({
+        url: `/pages/gaokao-result/index?planId=${result.plan_id}`,
+      });
     } catch (error) {
       const message = getErrorMessage(error, "生成失败");
       console.error(error);
-      this.setData({ planningStatus: "failed", planningError: message });
+      this.setData({
+        planningStatus: "failed",
+        planningError: message,
+      });
       wx.showToast({ title: message, icon: "none" });
     } finally {
-      wx.hideLoading();
+      if (loadingShown) {
+        wx.hideLoading();
+      }
     }
-  },
-
-  async loadRecentPlans() {
-    try {
-      const recentPlans = await request({
-        url: "/gaokao",
-        method: "GET",
-        token: this.data.token,
-        timeout: 30000,
-      });
-      this.setData({ recentPlans: recentPlans || [] });
-    } catch (error) {
-      console.error(error);
-    }
-  },
-
-  openPlanDetail(event) {
-    const planId = event.currentTarget.dataset.planId;
-    if (!planId) return;
-    wx.navigateTo({ url: `/pages/gaokao-result/index?planId=${planId}` });
   },
 });
