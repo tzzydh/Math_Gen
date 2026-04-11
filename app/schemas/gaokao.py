@@ -76,6 +76,24 @@ class GaokaoRecommendation(BaseModel):
     source_name: str | None = None
 
 
+class GaokaoExtendedRecommendation(BaseModel):
+    school: str
+    major: str
+    city: str
+    school_level: str | None = None
+    group: str
+    fit_label: str
+    reason: str
+    decision_tags: list[str] = Field(default_factory=list)
+    evidence_type: str | None = None
+    evidence_label: str | None = None
+    reference_year: int | None = None
+    reference_score: int | None = None
+    reference_rank: int | None = None
+    source_name: str | None = None
+    source_url: str | None = None
+
+
 class GaokaoPlanResponse(BaseModel):
     plan_id: int
     province: str
@@ -95,6 +113,10 @@ class GaokaoPlanResponse(BaseModel):
     advisor_takeaways: list[str] = Field(default_factory=list)
     school_choice_logic: list[str] = Field(default_factory=list)
     major_observations: list[str] = Field(default_factory=list)
+    major_breakdown: list[GaokaoDirectionCard] = Field(default_factory=list)
+    signature_advice: list[str] = Field(default_factory=list)
+    school_pool_note: str | None = None
+    extended_pool: list[GaokaoExtendedRecommendation] = Field(default_factory=list)
     deep_analysis: list[str] = Field(default_factory=list)
     strategy: list[str] = Field(default_factory=list)
     risk_notes: list[str] = Field(default_factory=list)

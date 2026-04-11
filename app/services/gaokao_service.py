@@ -4,6 +4,8 @@ import json
 import math
 import re
 from collections import defaultdict
+from functools import lru_cache
+from pathlib import Path
 from typing import Any
 
 from sqlalchemy import select
@@ -20,6 +22,8 @@ from core.openai_compat import call_openai_text_json
 
 YEAR = 2025
 PROVINCE = "吉林省"
+ROOT_DIR = Path(__file__).resolve().parents[2]
+DIRECTION_POOL_PATH = ROOT_DIR / "data" / "gaokao" / "processed" / "jilin_2025_direction_pool.json"
 
 TRACK_LABELS = {
     "physics": "物理类",
@@ -36,6 +40,32 @@ DEFAULT_BUCKET_COUNTS = {
     "chong": 4,
     "wen": 4,
     "bao": 4,
+}
+
+EXTENDED_GROUP_PRIORITY = {
+    "数据锚定补强池": 0,
+    "方向扩展关注池": 1,
+    "上限参考池": 2,
+}
+
+DIRECTION_ALIAS_MAP = {
+    "electronic_info": [
+        "电子信息",
+        "电子",
+        "通信",
+        "自动化",
+        "电气",
+        "物联网",
+        "计算机",
+        "软件",
+        "大数据",
+        "数据科学",
+        "信息管理",
+        "人工智能",
+        "芯片",
+        "微电子",
+        "数智",
+    ]
 }
 
 GAOKAO_REPORT_PROMPT = """
@@ -67,6 +97,16 @@ GAOKAO_REPORT_PROMPT = """
 规则引擎结论：
 {rule_payload}
 """.strip()
+
+
+@lru_cache(maxsize=1)
+def load_jilin_direction_pool() -> list[dict[str, Any]]:
+    if not DIRECTION_POOL_PATH.exists():
+        return []
+    try:
+        return json.loads(DIRECTION_POOL_PATH.read_text(encoding="utf-8"))
+    except Exception:
+        return []
 
 
 class GaokaoService:
@@ -147,6 +187,10 @@ class GaokaoService:
 
         direction_cards = self._build_direction_cards(payload, track, score, calculated_rank, control_lines)
         direction_advice = [card["content"] for card in direction_cards]
+        major_breakdown = self._build_major_breakdown(payload, track, score, calculated_rank)
+        signature_advice = self._build_signature_advice(payload, track, score, calculated_rank, recommendations)
+        extended_pool = self._build_extended_pool(payload, track, score, calculated_rank, recommendations)
+        school_pool_note = self._build_school_pool_note(payload, extended_pool)
         advisor_takeaways = self._build_advisor_takeaways(payload, track, score, calculated_rank, recommendations)
         school_choice_logic = self._build_school_choice_logic(payload, track, calculated_rank, recommendations)
         major_observations = self._build_major_observations(payload, track, recommendations)
@@ -167,6 +211,10 @@ class GaokaoService:
             "risk_notes": risk_notes,
             "execution_checklist": execution_checklist,
             "recommendations": recommendations[:8],
+            "major_breakdown": major_breakdown,
+            "signature_advice": signature_advice,
+            "extended_pool_preview": extended_pool[:8],
+            "school_pool_note": school_pool_note,
             "direction_cards": direction_cards,
             "control_lines": [
                 {"line_type": line.line_type, "score": line.score}
@@ -212,6 +260,10 @@ class GaokaoService:
             "advisor_takeaways": advisor_takeaways,
             "school_choice_logic": school_choice_logic,
             "major_observations": major_observations,
+            "major_breakdown": major_breakdown,
+            "signature_advice": signature_advice,
+            "school_pool_note": school_pool_note,
+            "extended_pool": extended_pool,
             "deep_analysis": deep_analysis,
             "strategy": strategy,
             "risk_notes": risk_notes,
@@ -603,7 +655,12 @@ class GaokaoService:
         for bucket in grouped:
             grouped[bucket] = sorted(
                 grouped[bucket],
-                key=lambda item: (-item["fit_score"], abs(item["_rank_gap"]), item["min_rank"] or math.inf),
+                key=lambda item: (
+                    -self._decision_priority(item["decision_tags"]),
+                    -item["fit_score"],
+                    abs(item["_rank_gap"]),
+                    item["min_rank"] or math.inf,
+                ),
             )
 
         selected: list[dict[str, Any]] = []
@@ -620,7 +677,12 @@ class GaokaoService:
         if len(selected) < 10:
             for item in sorted(
                 ranked_rows,
-                key=lambda row: (-row["fit_score"], abs(row["_rank_gap"]), row["min_rank"] or math.inf),
+                key=lambda row: (
+                    -self._decision_priority(row["decision_tags"]),
+                    -row["fit_score"],
+                    abs(row["_rank_gap"]),
+                    row["min_rank"] or math.inf,
+                ),
             ):
                 key = (item["school"], item["major"], item["bucket"])
                 if key in used_keys:
@@ -634,6 +696,10 @@ class GaokaoService:
             item.pop("_rank_gap", None)
             item.pop("_score_gap", None)
         return selected
+
+    def _decision_priority(self, tags: list[str]) -> int:
+        primary = {"专业贴合", "职业导向", "城市贴合", "预算友好"}
+        return sum(1 for tag in tags if tag in primary)
 
     def _build_fallback_recommendations(
         self,
@@ -716,6 +782,10 @@ class GaokaoService:
             score += 20
             reasons.append(f"命中意向专业关键词：{'、'.join(major_hits[:3])}")
             tags.append("专业贴合")
+        elif major_pref and "electronic_info" in self._detect_direction_keys(payload, track):
+            if not any(word in haystack for word in DIRECTION_ALIAS_MAP["electronic_info"]):
+                score -= 24
+                reasons.append("和电子信息主方向关联较弱，更适合作为保底兜底而不是主攻志愿")
 
         city_hits = [token for token in city_pref if token.lower() in baseline.city.lower()]
         if city_hits:
@@ -740,9 +810,11 @@ class GaokaoService:
                     tags.append("职业导向")
                     break
 
-        if track == "physics" and any(word in haystack for word in ["计算机", "电气", "电子", "自动化", "机械", "医学"]):
-            score += 6
-            tags.append("物理类优势")
+        if track == "physics":
+            physics_focus = DIRECTION_ALIAS_MAP["electronic_info"] if "electronic_info" in self._detect_direction_keys(payload, track) else ["计算机", "电气", "电子", "自动化", "机械", "医学"]
+            if any(word in haystack for word in physics_focus):
+                score += 6
+                tags.append("物理类优势")
         if track == "history" and any(word in haystack for word in ["法学", "会计", "师范", "汉语", "新闻"]):
             score += 6
             tags.append("历史类优势")
@@ -947,6 +1019,7 @@ class GaokaoService:
             logic.append(
                 f"你当前推荐池里已经同时给了冲、稳、保三档，正确用法不是平均分配，而是围绕1到2条主方向去排阵型。"
             )
+            logic.append("如果你发现主推荐池里学校还不够多，不要急着怀疑自己没学校可报，先去看后面的方向扩展池，它是专门用来补专业路线的。")
         if payload.preferred_cities:
             logic.append(f"你写了意向城市“{payload.preferred_cities}”，所以学校选择时要把城市作为专业后的第二筛选条件。")
         return logic[:5]
@@ -966,7 +1039,7 @@ class GaokaoService:
             )
             if not any(self._has_strong_direction_match(item) for item in recommendations):
                 observations.append(
-                    f"当前公开数据样本里，与“{'、'.join(preferred_majors[:2])}”高度贴合的院校样本还不够多，所以这份名单更适合先看梯度和城市，不要直接把它当成最终定专业清单。"
+                    f"当前公开分数样本里，与“{'、'.join(preferred_majors[:2])}”高度贴合的院校还不算厚，所以你要把主推荐池和后面的方向扩展池结合着看。"
                 )
 
         if track == "physics":
@@ -989,6 +1062,318 @@ class GaokaoService:
 
         return observations[:5]
 
+    def _build_major_breakdown(
+        self,
+        payload: GaokaoPlanRequest,
+        track: str,
+        score: int,
+        rank: int,
+    ) -> list[dict[str, str]]:
+        direction_keys = self._detect_direction_keys(payload, track)
+        cards: list[dict[str, str]] = []
+
+        if track == "physics" and "electronic_info" in direction_keys:
+            cards.extend(
+                [
+                    {
+                        "title": "硬件通信线",
+                        "content": (
+                            "这条路更接近电子信息工程、通信工程、电子科学与技术。课程会碰到模电数电、信号系统、通信原理，"
+                            "适合愿意学底层硬件、后续能接受读研或做研发测试的学生。"
+                        ),
+                    },
+                    {
+                        "title": "电气自动化线",
+                        "content": (
+                            "这条路更接近电气工程及其自动化、自动化、测控。它通常没有计算机那样热闹，但就业口径更稳，"
+                            "对普通家庭尤其友好，考公、进国企、进工程单位都更容易落地。"
+                        ),
+                    },
+                    {
+                        "title": "计算机数据线",
+                        "content": (
+                            "这条路更接近计算机科学与技术、软件工程、数据科学与大数据技术。上限高、城市资源敏感、竞争也卷，"
+                            "更适合愿意持续学习、愿意为城市平台和读研机会投入的人。"
+                        ),
+                    },
+                    {
+                        "title": "数智转轨线",
+                        "content": (
+                            f"像信息管理与信息系统、数据科学这种专业，对你这种第{rank}名、{score}分的吉林物理类考生很有价值："
+                            "它不一定最硬核，但更容易兼顾长春、本地落地、后期考研和数字化岗位。"
+                        ),
+                    },
+                ]
+            )
+        elif track == "physics":
+            cards.append(
+                {
+                    "title": "工科分流提醒",
+                    "content": "物理类看起来都叫工科，但机械、电气、自动化、电子、计算机是五条不同路径，后面选学校之前一定先把这件事问清楚。",
+                }
+            )
+        else:
+            cards.append(
+                {
+                    "title": "文科分流提醒",
+                    "content": "历史类更要先分清楚考编型、考公型、财经型和内容传播型，不要把名字体面的专业混在一起看。",
+                }
+            )
+        return cards
+
+    def _build_signature_advice(
+        self,
+        payload: GaokaoPlanRequest,
+        track: str,
+        score: int,
+        rank: int,
+        recommendations: list[dict[str, Any]],
+    ) -> list[str]:
+        notes = (payload.notes or "").replace(" ", "")
+        advice: list[str] = []
+        direction_keys = self._detect_direction_keys(payload, track)
+
+        if track == "physics" and "electronic_info" in direction_keys:
+            advice.append("别把“电子信息”四个字当成一个专业，它至少分硬件通信、电气自动化、计算机数据、数智转轨四条路。")
+            advice.append(
+                f"你现在吉林物理类约第{rank}名，最怕的是为了学校名头硬冲一圈，最后既没保住电子信息相关方向，也没保住城市资源。"
+            )
+            if payload.preferred_cities:
+                advice.append(
+                    f"你既然明确提到了“{payload.preferred_cities}”，那就别只问‘能上什么学校’，还要问‘这个城市能不能给我实习、考研和第一份工作’。"
+                )
+            if "考研" in notes:
+                advice.append("既然后期考研已经写进计划，本科阶段就更应该优先选课程底子更硬、工科氛围更强、城市实习更方便的学校。")
+            if "调剂" in notes:
+                advice.append("你能接受调剂是加分项，但接受调剂不等于放弃方向，电子信息大类里也要尽量守住电气、自动化、电子、计算机这些硬出口。")
+        else:
+            advice.append("真正好的志愿报告，不是把学校列一堆，而是把你以后往哪条路走先讲清楚。")
+
+        if recommendations:
+            advice.append("这次我把学校池拆成了‘主推荐池 + 方向扩展池’，前者解决能不能报，后者解决值不值得继续深挖。")
+        return advice[:5]
+
+    def _build_school_pool_note(self, payload: GaokaoPlanRequest, extended_pool: list[dict[str, Any]]) -> str | None:
+        if not extended_pool:
+            return None
+        preferred_majors = payload.preferred_majors or "当前方向"
+        return (
+            f"这组扩展池不是让你全部填进去，而是专门帮你把“{preferred_majors}”拆成可报池、上限池和补位池。"
+            "主推荐解决梯度，扩展池解决方向。"
+        )
+
+    def _build_extended_pool(
+        self,
+        payload: GaokaoPlanRequest,
+        track: str,
+        score: int,
+        rank: int,
+        recommendations: list[dict[str, Any]],
+    ) -> list[dict[str, Any]]:
+        direction_keys = self._detect_direction_keys(payload, track)
+        if not direction_keys:
+            return []
+
+        existing_keys = {(item.get("school"), item.get("major")) for item in recommendations}
+        rows = [
+            item
+            for item in load_jilin_direction_pool()
+            if item.get("track") == track
+            and set(item.get("direction_keys", [])).intersection(direction_keys)
+        ]
+
+        results: list[dict[str, Any]] = []
+        for row in rows:
+            key = (row.get("school"), row.get("major"))
+            if key in existing_keys:
+                continue
+
+            reference_score = row.get("reference_score")
+            reference_rank = row.get("reference_rank")
+            if reference_rank is None and isinstance(reference_score, int):
+                reference_rank = self._lookup_rank(track, reference_score)
+
+            score_gap = None
+            rank_gap = None
+            if isinstance(reference_score, int):
+                score_gap = reference_score - score
+            if isinstance(reference_rank, int):
+                rank_gap = reference_rank - rank
+
+            group = self._extended_group_for(score_gap=score_gap, rank_gap=rank_gap, evidence_type=str(row.get("evidence_type") or "plan"))
+            if group is None:
+                continue
+
+            fit_score, decision_tags = self._score_extended_pool_item(payload, row)
+            results.append(
+                {
+                    "school": row.get("school"),
+                    "major": row.get("major"),
+                    "city": row.get("city"),
+                    "school_level": row.get("school_level"),
+                    "group": group,
+                    "fit_label": self._extended_fit_label(group, score_gap, rank_gap),
+                    "reason": self._build_extended_reason(payload, row, score_gap, rank_gap),
+                    "decision_tags": decision_tags,
+                    "evidence_type": row.get("evidence_type"),
+                    "evidence_label": self._extended_evidence_label(str(row.get("evidence_type") or "plan")),
+                    "reference_year": row.get("reference_year"),
+                    "reference_score": reference_score,
+                    "reference_rank": reference_rank,
+                    "source_name": row.get("source_name"),
+                    "source_url": row.get("source_url"),
+                    "_fit_score": fit_score,
+                    "_score_gap": score_gap if score_gap is not None else 999,
+                    "_rank_gap": abs(rank_gap) if rank_gap is not None else 999999,
+                }
+            )
+
+        results = sorted(
+            results,
+            key=lambda item: (
+                EXTENDED_GROUP_PRIORITY.get(item["group"], 9),
+                -item["_fit_score"],
+                item["_rank_gap"],
+                item["_score_gap"],
+            ),
+        )[:12]
+
+        for item in results:
+            item.pop("_fit_score", None)
+            item.pop("_score_gap", None)
+            item.pop("_rank_gap", None)
+        return results
+
+    def _detect_direction_keys(self, payload: GaokaoPlanRequest, track: str) -> list[str]:
+        text = " ".join(
+            part
+            for part in [
+                payload.preferred_majors or "",
+                payload.career_preferences or "",
+                payload.notes or "",
+            ]
+            if part
+        )
+        keys: list[str] = []
+        if track == "physics":
+            if any(token in text for token in DIRECTION_ALIAS_MAP["electronic_info"]):
+                keys.append("electronic_info")
+        return keys
+
+    def _score_extended_pool_item(
+        self,
+        payload: GaokaoPlanRequest,
+        row: dict[str, Any],
+    ) -> tuple[int, list[str]]:
+        haystack = " ".join(
+            [
+                str(row.get("school") or ""),
+                str(row.get("major") or ""),
+                str(row.get("city") or ""),
+                str(row.get("school_level") or ""),
+                str(row.get("direction_tags") or ""),
+                str(row.get("note") or ""),
+            ]
+        ).lower()
+        score = 40
+        tags: list[str] = []
+
+        major_hits = [token for token in self._tokenize(payload.preferred_majors) if token.lower() in haystack]
+        if major_hits:
+            score += 18
+            tags.append("专业贴合")
+
+        city_hits = [token for token in self._tokenize(payload.preferred_cities) if token.lower() in str(row.get("city") or "").lower()]
+        if city_hits:
+            score += 12
+            tags.append("城市贴合")
+
+        career_pref = payload.career_preferences or ""
+        if any(word in career_pref for word in ["工程", "技术", "就业"]) and any(word in haystack for word in ["电气", "自动化", "工程", "就业"]):
+            score += 10
+            tags.append("就业导向")
+        if any(word in career_pref for word in ["读研", "深造"]) and any(word in haystack for word in ["读研", "数据", "电子", "计算机"]):
+            score += 8
+            tags.append("读研友好")
+        if row.get("evidence_type") == "public_baseline":
+            score += 10
+            tags.append("公开分数")
+        elif row.get("evidence_type") == "plan":
+            tags.append("官方计划")
+        else:
+            tags.append("方向样本")
+        return score, list(dict.fromkeys(tags))[:4]
+
+    def _extended_group_for(
+        self,
+        score_gap: int | None,
+        rank_gap: int | None,
+        evidence_type: str,
+    ) -> str | None:
+        if score_gap is not None:
+            if score_gap > 70 or (rank_gap is not None and rank_gap < -26000):
+                return None
+            if score_gap <= 28 and (rank_gap is None or rank_gap > -10000):
+                return "数据锚定补强池"
+            if score_gap <= 55:
+                return "上限参考池"
+            return None
+        if evidence_type == "plan":
+            return "方向扩展关注池"
+        return "上限参考池"
+
+    def _extended_fit_label(
+        self,
+        group: str,
+        score_gap: int | None,
+        rank_gap: int | None,
+    ) -> str:
+        if group == "数据锚定补强池":
+            if score_gap is not None and score_gap <= -20:
+                return "可做保底增强"
+            if score_gap is not None and score_gap <= 10:
+                return "可重点研究"
+            return "可做冲稳补强"
+        if group == "方向扩展关注池":
+            return "需核线后纳入"
+        if rank_gap is not None and rank_gap < -12000:
+            return "明显上限样本"
+        return "方向上限参考"
+
+    def _extended_evidence_label(self, evidence_type: str) -> str:
+        labels = {
+            "public_baseline": "2025公开录取分数",
+            "public_query": "2025公开查询线索",
+            "plan": "2025吉林招生计划",
+            "program_profile": "官方专业介绍",
+            "school_summary": "校方年度综述",
+        }
+        return labels.get(evidence_type, "公开信息")
+
+    def _build_extended_reason(
+        self,
+        payload: GaokaoPlanRequest,
+        row: dict[str, Any],
+        score_gap: int | None,
+        rank_gap: int | None,
+    ) -> str:
+        pieces: list[str] = []
+        if isinstance(row.get("reference_score"), int):
+            pieces.append(f"{row.get('reference_year')}年吉林公开最低分约{row.get('reference_score')}分")
+        else:
+            pieces.append(f"{row.get('reference_year')}年吉林公开资料里能确认该专业有招生线索")
+        if isinstance(row.get("reference_rank"), int):
+            pieces.append(f"参考位次约{row.get('reference_rank')}名")
+        if score_gap is not None:
+            pieces.append(f"与你当前分数大约相差{score_gap:+d}分")
+        if rank_gap is not None:
+            pieces.append(f"与你当前位次大约相差{rank_gap:+d}名")
+        if payload.preferred_cities and any(token in str(row.get("city") or "") for token in self._tokenize(payload.preferred_cities)):
+            pieces.append("城市与你的明确偏好重合")
+        if row.get("note"):
+            pieces.append(str(row["note"]))
+        return "，".join(pieces[:4]) + "。"
+
     def _build_strategy(
         self,
         payload: GaokaoPlanRequest,
@@ -1002,6 +1387,7 @@ class GaokaoService:
             f"先用吉林{TRACK_LABELS[track]}一分一段把自己定位到约第{rank}名，再围绕这个位次做院校筛选，不要只盯分数。",
             f"你当前较特控线{'高' if score >= line_map.get('special', 0) else '低'}{abs(score - line_map.get('special', 0))}分，说明你有一定选择空间，但还没到可以随便任性的程度。",
             "志愿结构建议做成“2个冲方向、4个稳方向、4个保方向”的思路，同一方向尽量多留几个可替换方案。",
+            "主推荐池负责正式填报梯度，方向扩展池负责第二轮缩圈和补专业路线，别把这两件事混成一件事。",
         ]
         if payload.preferred_majors:
             tips.append(f"意向专业“{payload.preferred_majors}”要优先看课程、去向和所在城市，不要只被学校名头带节奏。")
@@ -1045,6 +1431,7 @@ class GaokaoService:
             checklist.append(f"重点复核意向城市“{payload.preferred_cities}”里的院校，看未来实习和落户是否匹配你的期待。")
         if recommendations:
             checklist.append("正式填报前，再把冲、稳、保三档按顺序拉开梯度，不要让同一档位全部挤在一起。")
+            checklist.append("把方向扩展池里真正想深挖的学校单独拉出来，二次去查招生计划、专业组和培养地点。")
         return checklist[:5]
 
     def _build_summary(

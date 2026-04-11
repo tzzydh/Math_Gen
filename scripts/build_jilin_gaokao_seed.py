@@ -63,6 +63,17 @@ def build_control_lines() -> list[dict[str, object]]:
 
 def load_admission_baselines() -> list[dict[str, object]]:
     seed_path = RAW_DIR / "jilin_2025_admission_baselines.seed.json"
+    extra_seed_path = RAW_DIR / "jilin_2025_admission_baselines.extra.seed.json"
+    rows = json.loads(seed_path.read_text(encoding="utf-8"))
+    if extra_seed_path.exists():
+        rows.extend(json.loads(extra_seed_path.read_text(encoding="utf-8")))
+    return rows
+
+
+def load_direction_pool() -> list[dict[str, object]]:
+    seed_path = RAW_DIR / "jilin_2025_direction_pool.seed.json"
+    if not seed_path.exists():
+        return []
     return json.loads(seed_path.read_text(encoding="utf-8"))
 
 
@@ -72,6 +83,7 @@ def main() -> None:
     physics_rows = parse_score_rank_text(RAW_DIR / "jilin_2025_physics_score_rank.pdf.txt", "physics")
     history_rows = parse_score_rank_text(RAW_DIR / "jilin_2025_history_score_rank.pdf.txt", "history")
     admission_rows = load_admission_baselines()
+    direction_pool_rows = load_direction_pool()
 
     write_csv(
         PROCESSED_DIR / "jilin_2025_score_rank_physics.csv",
@@ -104,10 +116,13 @@ def main() -> None:
     )
     with (PROCESSED_DIR / "jilin_2025_control_lines.json").open("w", encoding="utf-8") as fp:
         json.dump(build_control_lines(), fp, ensure_ascii=False, indent=2)
+    with (PROCESSED_DIR / "jilin_2025_direction_pool.json").open("w", encoding="utf-8") as fp:
+        json.dump(direction_pool_rows, fp, ensure_ascii=False, indent=2)
 
     print(f"built {len(physics_rows)} physics score-rank rows")
     print(f"built {len(history_rows)} history score-rank rows")
     print(f"built {len(admission_rows)} admission baseline rows")
+    print(f"built {len(direction_pool_rows)} direction-pool rows")
 
 
 if __name__ == "__main__":

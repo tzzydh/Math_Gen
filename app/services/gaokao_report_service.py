@@ -96,6 +96,10 @@ class GaokaoReportService:
         target = plan.target_json or {}
         control_lines = details.get("control_lines", [])
         recommendations = details.get("recommendations", [])
+        major_breakdown = details.get("major_breakdown", [])
+        signature_advice = details.get("signature_advice", [])
+        extended_pool = details.get("extended_pool", [])
+        school_pool_note = details.get("school_pool_note")
 
         story: list[Any] = [
             Paragraph("AI 高考志愿顾问报告", title_style),
@@ -144,6 +148,33 @@ class GaokaoReportService:
             Paragraph(self._bullet_lines(details.get("major_observations", [])), body_style),
             Spacer(1, 10),
         ]
+
+        if major_breakdown:
+            story.extend(
+                [
+                    Paragraph("电子信息方向拆解", heading_style),
+                    Paragraph(
+                        self._join_lines(
+                            [
+                                f"<b>{escape(str(item.get('title', '')))}</b><br/>{self._paragraphize(str(item.get('content', '')))}"
+                                for item in major_breakdown
+                                if isinstance(item, dict)
+                            ]
+                        ),
+                        body_style,
+                    ),
+                    Spacer(1, 10),
+                ]
+            )
+
+        if signature_advice:
+            story.extend(
+                [
+                    Paragraph("我们的额外判断", heading_style),
+                    Paragraph(self._bullet_lines(signature_advice), body_style),
+                    Spacer(1, 10),
+                ]
+            )
 
         deep_analysis = details.get("deep_analysis", [])
         if deep_analysis:
@@ -207,6 +238,49 @@ class GaokaoReportService:
                     Spacer(1, 8),
                 ]
             )
+
+        if extended_pool:
+            story.extend(
+                [
+                    Paragraph("方向扩展学校池", heading_style),
+                ]
+            )
+            if school_pool_note:
+                story.extend(
+                    [
+                        Paragraph(self._paragraphize(str(school_pool_note)), body_style),
+                        Spacer(1, 6),
+                    ]
+                )
+            for index, item in enumerate(extended_pool, start=1):
+                if not isinstance(item, dict):
+                    continue
+                story.extend(
+                    [
+                        Paragraph(
+                            f"{index}. {escape(item.get('school', ''))} · {escape(item.get('major', ''))} · "
+                            f"{escape(str(item.get('fit_label') or item.get('group') or '扩展池'))}",
+                            heading_style,
+                        ),
+                        Paragraph(
+                            self._join_lines(
+                                [
+                                    f"城市：{escape(str(item.get('city') or '-'))}",
+                                    f"院校层级：{escape(str(item.get('school_level') or '-'))}",
+                                    f"证据类型：{escape(str(item.get('evidence_label') or '-'))}",
+                                    (
+                                        f"参考分数：{escape(str(item.get('reference_score')))}分"
+                                        if item.get("reference_score") is not None
+                                        else "参考分数：需进一步核线"
+                                    ),
+                                ]
+                            ),
+                            meta_style,
+                        ),
+                        Paragraph(self._paragraphize(str(item.get("reason") or "")), body_style),
+                        Spacer(1, 8),
+                    ]
+                )
 
         doc.build(story)
         try:

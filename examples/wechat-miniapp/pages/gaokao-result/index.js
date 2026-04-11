@@ -80,6 +80,10 @@ Page({
           trackLabel: TRACK_LABELS[result.track] || result.track,
           controlLines,
           bucketGroups: this.groupByBucket(recommendations),
+          majorBreakdown: result.major_breakdown || [],
+          signatureAdvice: result.signature_advice || [],
+          schoolPoolNote: result.school_pool_note || "",
+          extendedPoolGroups: this.groupExtendedPool(result.extended_pool || []),
           recommendationCount: recommendations.length,
           advisorModeLabel: result.llm_enhanced ? "规则打底 + 模型增强" : "纯规则模式",
           advisorModelLabel: result.advisor_model || "系统默认 / 未启用",
@@ -103,6 +107,22 @@ Page({
         items: recommendations.filter((item) => item.bucket === key),
       }))
       .filter((section) => section.items.length);
+  },
+
+  groupExtendedPool(items) {
+    const groups = {};
+    items.forEach((item) => {
+      const key = item.group || "方向扩展池";
+      if (!groups[key]) {
+        groups[key] = [];
+      }
+      groups[key].push(item);
+    });
+    return Object.keys(groups).map((key) => ({
+      key,
+      title: key,
+      items: groups[key],
+    }));
   },
 
   async handleDownloadPlanPdf() {

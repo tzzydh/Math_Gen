@@ -102,6 +102,22 @@
     </view>
   </view>
 
+  <view class="card" wx:if="{{result.majorBreakdown.length}}">
+    <view class="section-title">电子信息方向拆解</view>
+    <view wx:for="{{result.majorBreakdown}}" wx:key="title" class="direction-card">
+      <view class="direction-title">{{item.title}}</view>
+      <view class="text-block">{{item.content}}</view>
+    </view>
+  </view>
+
+  <view class="card" wx:if="{{result.signatureAdvice.length}}">
+    <view class="section-title">我们的额外判断</view>
+    <view wx:for="{{result.signatureAdvice}}" wx:key="index" class="list-item">
+      <view class="bullet"></view>
+      <view class="list-text">{{item}}</view>
+    </view>
+  </view>
+
   <view class="card">
     <view class="section-title">填报策略</view>
     <view wx:for="{{result.strategy}}" wx:key="index" class="list-item">
@@ -148,6 +164,32 @@
         </view>
         <view class="text-block">{{item.reason}}</view>
         <view class="major-comment" wx:if="{{item.major_comment}}">{{item.major_comment}}</view>
+      </view>
+    </view>
+  </view>
+
+  <view class="card" wx:if="{{result.extendedPoolGroups.length}}">
+    <view class="section-title">方向扩展学校池</view>
+    <view class="text-block" wx:if="{{result.schoolPoolNote}}">{{result.schoolPoolNote}}</view>
+    <view wx:for="{{result.extendedPoolGroups}}" wx:key="key" class="bucket-block">
+      <view class="bucket-title">{{item.title}}</view>
+      <view wx:for="{{item.items}}" wx:key="index" class="recommendation-card">
+        <view class="recommendation-head">
+          <view class="recommendation-title">{{item.school}} · {{item.major}}</view>
+          <view class="score-pill neutral-pill">{{item.fit_label}}</view>
+        </view>
+        <view class="recommendation-meta">
+          {{item.city}}
+          <text wx:if="{{item.school_level}}"> · {{item.school_level}}</text>
+        </view>
+        <view class="recommendation-meta">
+          {{item.evidence_label || '公开信息'}}
+          <text wx:if="{{item.reference_score !== null && item.reference_score !== undefined}}"> · 参考分数 {{item.reference_score}}分</text>
+        </view>
+        <view class="tag-row" wx:if="{{item.decision_tags.length}}">
+          <view class="tag-pill" wx:for="{{item.decision_tags}}" wx:key="index">{{item}}</view>
+        </view>
+        <view class="text-block">{{item.reason}}</view>
       </view>
     </view>
   </view>

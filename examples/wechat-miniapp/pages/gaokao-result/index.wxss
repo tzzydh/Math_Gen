@@ -188,6 +188,11 @@
   font-weight: 700;
 }
 
+.neutral-pill {
+  background: #ecfeff;
+  color: #155e75;
+}
+
 .recommendation-meta {
   margin-top: 10rpx;
   color: #15803d;

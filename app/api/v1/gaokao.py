@@ -11,6 +11,7 @@ from app.schemas.gaokao import (
     GaokaoConsultationRequest,
     GaokaoControlLineItem,
     GaokaoDirectionCard,
+    GaokaoExtendedRecommendation,
     GaokaoPlanRequest,
     GaokaoPlanResponse,
     GaokaoPlanSummary,
@@ -92,6 +93,10 @@ def create_gaokao_plan(
             "advisor_takeaways": result["advisor_takeaways"],
             "school_choice_logic": result["school_choice_logic"],
             "major_observations": result["major_observations"],
+            "major_breakdown": result["major_breakdown"],
+            "signature_advice": result["signature_advice"],
+            "school_pool_note": result["school_pool_note"],
+            "extended_pool": result["extended_pool"],
             "deep_analysis": result["deep_analysis"],
             "strategy": result["strategy"],
             "risk_notes": result["risk_notes"],
@@ -205,6 +210,16 @@ def _serialize_plan(plan: GaokaoPlan) -> GaokaoPlanResponse:
         for item in details.get("direction_cards", [])
         if isinstance(item, dict)
     ]
+    major_breakdown = [
+        GaokaoDirectionCard(**item)
+        for item in details.get("major_breakdown", [])
+        if isinstance(item, dict)
+    ]
+    extended_pool = [
+        GaokaoExtendedRecommendation(**item)
+        for item in details.get("extended_pool", [])
+        if isinstance(item, dict)
+    ]
     return GaokaoPlanResponse(
         plan_id=plan.id,
         province=plan.province,
@@ -224,6 +239,10 @@ def _serialize_plan(plan: GaokaoPlan) -> GaokaoPlanResponse:
         advisor_takeaways=details.get("advisor_takeaways", []),
         school_choice_logic=details.get("school_choice_logic", []),
         major_observations=details.get("major_observations", []),
+        major_breakdown=major_breakdown,
+        signature_advice=details.get("signature_advice", []),
+        school_pool_note=details.get("school_pool_note"),
+        extended_pool=extended_pool,
         deep_analysis=details.get("deep_analysis", []),
         strategy=details.get("strategy", []),
         risk_notes=details.get("risk_notes", []),
