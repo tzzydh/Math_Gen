@@ -143,7 +143,7 @@ class GaokaoService:
             baselines=baselines,
         )
         if not recommendations:
-            recommendations = self._build_fallback_recommendations(baselines, calculated_rank, payload)
+            recommendations = self._build_fallback_recommendations(baselines, score, calculated_rank, payload)
 
         direction_cards = self._build_direction_cards(payload, track, score, calculated_rank, control_lines)
         direction_advice = [card["content"] for card in direction_cards]
@@ -572,10 +572,13 @@ class GaokaoService:
             if baseline.min_rank is None:
                 continue
 
-            gap = rank - baseline.min_rank
-            bucket = self._classify_bucket(gap)
+            rank_gap = self._rank_gap(rank, baseline.min_rank)
+            score_gap = baseline.min_score - score
+            bucket = self._classify_bucket(rank_gap, score_gap)
+            if bucket is None:
+                continue
             match_score, match_reasons, decision_tags = self._score_direction_match(payload, track, baseline)
-            fit_score = self._fit_score(bucket, gap, match_score)
+            fit_score = self._fit_score(bucket, rank_gap, score_gap, match_score)
             row = {
                 "school": baseline.school,
                 "major": baseline.major,
@@ -583,15 +586,16 @@ class GaokaoService:
                 "school_level": baseline.school_level,
                 "bucket": bucket,
                 "fit_score": fit_score,
-                "risk_level": self._risk_level(bucket, gap),
-                "reason": self._build_reason(rank, baseline, bucket, match_reasons),
-                "major_comment": self._build_major_comment(payload, track, baseline, gap),
+                "risk_level": self._risk_level(bucket, rank_gap, score_gap),
+                "reason": self._build_reason(rank, score, baseline, bucket, match_reasons),
+                "major_comment": self._build_major_comment(payload, track, baseline, rank_gap, score_gap),
                 "decision_tags": decision_tags,
                 "data_year": baseline.data_year,
                 "min_score": baseline.min_score,
                 "min_rank": baseline.min_rank,
                 "source_name": baseline.source_name,
-                "_gap": gap,
+                "_rank_gap": rank_gap,
+                "_score_gap": score_gap,
             }
             grouped[bucket].append(row)
             ranked_rows.append(row)
@@ -599,12 +603,12 @@ class GaokaoService:
         for bucket in grouped:
             grouped[bucket] = sorted(
                 grouped[bucket],
-                key=lambda item: (-item["fit_score"], abs(item["_gap"]), item["min_rank"] or math.inf),
+                key=lambda item: (-item["fit_score"], abs(item["_rank_gap"]), item["min_rank"] or math.inf),
             )
 
         selected: list[dict[str, Any]] = []
         used_keys: set[tuple[str, str, str]] = set()
-        for bucket in ("chong", "wen", "bao"):
+        for bucket in ("wen", "bao", "chong"):
             count = DEFAULT_BUCKET_COUNTS[bucket]
             for item in grouped.get(bucket, [])[:count]:
                 key = (item["school"], item["major"], item["bucket"])
@@ -616,7 +620,7 @@ class GaokaoService:
         if len(selected) < 10:
             for item in sorted(
                 ranked_rows,
-                key=lambda row: (-row["fit_score"], abs(row["_gap"]), row["min_rank"] or math.inf),
+                key=lambda row: (-row["fit_score"], abs(row["_rank_gap"]), row["min_rank"] or math.inf),
             ):
                 key = (item["school"], item["major"], item["bucket"])
                 if key in used_keys:
@@ -627,12 +631,14 @@ class GaokaoService:
                     break
 
         for item in selected:
-            item.pop("_gap", None)
+            item.pop("_rank_gap", None)
+            item.pop("_score_gap", None)
         return selected
 
     def _build_fallback_recommendations(
         self,
         baselines: list[GaokaoAdmissionBaseline],
+        score: int,
         rank: int,
         payload: GaokaoPlanRequest,
     ) -> list[dict[str, Any]]:
@@ -643,8 +649,11 @@ class GaokaoService:
         results = []
         for item in sorted_rows:
             _, match_reasons, decision_tags = self._score_direction_match(payload, item.track, item)
-            gap = rank - (item.min_rank or rank)
-            bucket = self._classify_bucket(gap)
+            rank_gap = self._rank_gap(rank, item.min_rank or rank)
+            score_gap = item.min_score - score
+            bucket = self._classify_bucket(rank_gap, score_gap)
+            if bucket is None:
+                continue
             results.append(
                 {
                     "school": item.school,
@@ -652,10 +661,10 @@ class GaokaoService:
                     "city": item.city,
                     "school_level": item.school_level,
                     "bucket": bucket,
-                    "fit_score": self._fit_score(bucket, gap, 0),
-                    "risk_level": self._risk_level(bucket, gap),
-                    "reason": self._build_reason(rank, item, bucket, match_reasons),
-                    "major_comment": self._build_major_comment(payload, item.track, item, gap),
+                    "fit_score": self._fit_score(bucket, rank_gap, score_gap, 0),
+                    "risk_level": self._risk_level(bucket, rank_gap, score_gap),
+                    "reason": self._build_reason(rank, score, item, bucket, match_reasons),
+                    "major_comment": self._build_major_comment(payload, item.track, item, rank_gap, score_gap),
                     "decision_tags": decision_tags,
                     "data_year": item.data_year,
                     "min_score": item.min_score,
@@ -665,12 +674,17 @@ class GaokaoService:
             )
         return results
 
-    def _classify_bucket(self, gap: int) -> str:
-        if gap <= -6500:
-            return "bao"
-        if gap <= -1500:
+    def _rank_gap(self, current_rank: int, baseline_rank: int) -> int:
+        return baseline_rank - current_rank
+
+    def _classify_bucket(self, rank_gap: int, score_gap: int) -> str | None:
+        if rank_gap < -22000 or score_gap > 55:
+            return None
+        if rank_gap < -9000 or score_gap > 25:
+            return "chong"
+        if rank_gap < 12000 or score_gap > -30:
             return "wen"
-        return "chong"
+        return "bao"
 
     def _score_direction_match(
         self,
@@ -751,23 +765,25 @@ class GaokaoService:
             return []
         return [token for token in re.split(r"[、,，/\\\s]+", raw_text) if token]
 
-    def _fit_score(self, bucket: str, gap: int, match_score: int) -> int:
+    def _fit_score(self, bucket: str, rank_gap: int, score_gap: int, match_score: int) -> int:
         base = {"chong": 73, "wen": 84, "bao": 80}[bucket]
-        closeness = max(0, 20 - min(abs(gap) // 350, 20))
-        return max(52, min(99, base + closeness + match_score))
+        closeness = max(0, 20 - min(abs(rank_gap) // 600, 20))
+        score_balance = max(-12, min(10, -score_gap // 4))
+        return max(52, min(99, base + closeness + score_balance + match_score))
 
-    def _risk_level(self, bucket: str, gap: int) -> str:
+    def _risk_level(self, bucket: str, rank_gap: int, score_gap: int) -> str:
         if bucket == "bao":
             return "low"
         if bucket == "wen":
             return "medium"
-        if gap > 2000:
+        if rank_gap < -15000 or score_gap > 40:
             return "high"
         return "medium"
 
     def _build_reason(
         self,
         rank: int,
+        score: int,
         baseline: GaokaoAdmissionBaseline,
         bucket: str,
         match_reasons: list[str],
@@ -777,6 +793,8 @@ class GaokaoService:
         ]
         if baseline.min_rank:
             pieces.append(f"最低位次约{baseline.min_rank}名，你当前位次约{rank}名")
+        if baseline.min_score != score:
+            pieces.append(f"分数差约{baseline.min_score - score:+d}分")
         pieces.append(f"按当前公开数据属于“{BUCKET_LABELS[bucket]}”档")
         if match_reasons:
             pieces.append("；".join(match_reasons[:2]))
@@ -789,7 +807,8 @@ class GaokaoService:
         payload: GaokaoPlanRequest,
         track: str,
         baseline: GaokaoAdmissionBaseline,
-        gap: int,
+        rank_gap: int,
+        score_gap: int,
     ) -> str:
         major = baseline.major
         city = baseline.city
@@ -806,14 +825,17 @@ class GaokaoService:
         else:
             comments.append("这个专业不能只看名字，最好继续核对课程设置、读研比例和毕业去向。")
 
-        if payload.preferred_cities:
-            comments.append(f"{city}与您的城市偏好有一定重合时，落地资源会比单纯看学校名头更重要。")
+        city_hits = [token for token in self._tokenize(payload.preferred_cities) if token.lower() in city.lower()]
+        if city_hits:
+            comments.append(f"{city}和你的城市偏好直接重合，后续要重点看这座城市能不能给到实习、读研和就业机会。")
+        elif payload.preferred_cities:
+            comments.append(f"{city}不在你明确偏好的城市里，除非专业优势足够明显，否则不要只因为学校名字硬上。")
         else:
             comments.append(f"{city}的城市资源和实习承接，需要和学校层级一起看，别只看一张分数线。")
 
-        if gap <= -4000:
-            comments.append("从位次上看更偏保底，可以当成兜底专业，不建议把全部名额都押在这类学校。")
-        elif gap > 1500:
+        if rank_gap >= 12000 and score_gap <= -20:
+            comments.append("从位次和分数上看更偏保底，可以当成兜底选择，但也别把所有名额都放在过于轻松的学校上。")
+        elif rank_gap < -9000 or score_gap > 25:
             comments.append("从位次上看更偏冲刺，如果特别想去，要接受专业调剂或结果波动。")
         else:
             comments.append("从位次上看属于可认真研究的一档，重点比较专业实力、城市和学费。")
@@ -879,7 +901,7 @@ class GaokaoService:
             cards.append(
                 {
                     "title": "预算约束",
-                    "content": f"家庭预算偏好为“{payload.family_budget}”，所以推荐会主动压低高学费、中外合作和民办项目的优先级。",
+                    "content": self._build_budget_card_content(payload.family_budget),
                 }
             )
         return cards
@@ -892,12 +914,15 @@ class GaokaoService:
         rank: int,
         recommendations: list[dict[str, Any]],
     ) -> list[str]:
-        top_school = recommendations[0]["school"] if recommendations else "当前推荐院校"
+        anchor = self._pick_anchor_recommendation(recommendations)
         takeaways = [
             f"先说结论：你这档位更适合“先定方向，再做冲稳保”，而不是为了学校名头把专业完全让出去。",
             f"你现在约第{rank}名，已经具备认真挑专业的空间，别把志愿填报做成单纯的分数换学校游戏。",
-            f"目前推荐里，像“{top_school}”这类院校可以重点研究，但一定要把专业、城市、学费、保研或考公路径一起看。",
         ]
+        if anchor and self._has_strong_direction_match(anchor):
+            takeaways.append(f"目前推荐里，像“{anchor['school']}”这类院校可以重点研究，但一定要把专业、城市、学费、保研或考公路径一起看。")
+        else:
+            takeaways.append("当前公开数据样本里，和你方向高度贴合的院校还不算多，所以这版名单更适合先定梯度和边界，不适合直接当成最终专业确认单。")
         if payload.preferred_majors:
             takeaways.append(f"你已经给出了意向专业“{payload.preferred_majors}”，这很好，后面所有筛选都要围绕这个核心，不要轻易被校名带跑。")
         if track == "history":
@@ -939,6 +964,10 @@ class GaokaoService:
             observations.append(
                 f"你当前最应该做的是把“{'、'.join(preferred_majors[:3])}”拆成具体专业方向，而不是停留在大类名称。"
             )
+            if not any(self._has_strong_direction_match(item) for item in recommendations):
+                observations.append(
+                    f"当前公开数据样本里，与“{'、'.join(preferred_majors[:2])}”高度贴合的院校样本还不够多，所以这份名单更适合先看梯度和城市，不要直接把它当成最终定专业清单。"
+                )
 
         if track == "physics":
             observations.extend(
@@ -992,10 +1021,14 @@ class GaokaoService:
             "公开录取最低分只代表去年的门槛，不代表今年一定能录；真正填报时还要看招生计划、专业组、服从调剂和院校冷热变化。",
             "如果你更看重将来稳定就业，就别把所有机会都押在冲档学校上，至少留出两档真正能兜底的专业。",
         ]
-        if payload.family_budget and any(word in payload.family_budget for word in ["公办", "低", "有限"]):
+        if self._is_budget_sensitive(payload.family_budget):
             notes.append("家庭预算偏谨慎时，要特别注意民办和中外合作项目的总成本，不能只看入学那一年。")
+        elif payload.family_budget:
+            notes.append("预算不是核心约束时，也别因为‘无所谓’就忽略学费和培养地点，尤其是中外合作项目要单独算总账。")
         if any((item.get("bucket") == "chong" and item.get("risk_level") == "high") for item in recommendations):
             notes.append("本次冲档池里有部分学校更偏抬上限角色，如果非常执着，就要提前接受录取波动和专业调剂。")
+        if len(recommendations) < 8:
+            notes.append("当前吉林公开数据种子还不是完整院校库，所以本次更强调方向判断和高相关院校，不建议把院校数量少理解成可报学校就这些。")
         return notes[:5]
 
     def _build_execution_checklist(
@@ -1023,10 +1056,48 @@ class GaokaoService:
         recommendations: list[dict[str, Any]],
     ) -> str:
         line_map = {item.line_type: item.score for item in control_lines}
-        top_bucket = BUCKET_LABELS.get(recommendations[0]["bucket"], "稳") if recommendations else "稳"
+        focus = self._recommendation_focus(recommendations)
         return (
             f"按吉林省{YEAR}年公开数据，你当前属于{TRACK_LABELS[track]}约第{rank}名，"
             f"分数为{score}分，较本科线高{score - line_map.get('undergraduate', 0)}分。"
             f"这不是一个适合盲冲名校的档位，更适合采用“先顾方向、再做冲稳保”的填报策略："
-            f"先把专业出口、城市资源、家庭预算想明白，再去决定学校层级，当前推荐结果以“{top_bucket}”档起步。"
+            f"先把专业出口、城市资源、家庭预算想明白，再去决定学校层级，本次推荐会以“{focus}”为主骨架。"
         )
+
+    def _pick_anchor_recommendation(self, recommendations: list[dict[str, Any]]) -> dict[str, Any] | None:
+        for bucket in ("wen", "bao", "chong"):
+            for item in recommendations:
+                if item.get("bucket") == bucket and self._has_strong_direction_match(item):
+                    return item
+        for bucket in ("wen", "bao", "chong"):
+            for item in recommendations:
+                if item.get("bucket") == bucket:
+                    return item
+        return recommendations[0] if recommendations else None
+
+    def _recommendation_focus(self, recommendations: list[dict[str, Any]]) -> str:
+        buckets = {item.get("bucket") for item in recommendations}
+        if "wen" in buckets:
+            return "稳档和保档"
+        if "bao" in buckets:
+            return "保档"
+        if "chong" in buckets:
+            return "冲档"
+        return "稳档"
+
+    def _is_budget_sensitive(self, family_budget: str | None) -> bool:
+        if not family_budget:
+            return False
+        normalized = family_budget.replace(" ", "")
+        if any(word in normalized for word in ["无所谓", "都可以", "不敏感", "不是问题", "学费不是主要问题"]):
+            return False
+        return any(word in normalized for word in ["公办", "低", "有限", "一般", "控制", "谨慎", "普通"])
+
+    def _build_budget_card_content(self, family_budget: str) -> str:
+        if self._is_budget_sensitive(family_budget):
+            return f"家庭预算偏好为“{family_budget}”，所以推荐会主动压低高学费、中外合作和民办项目的优先级。"
+        return f"家庭预算偏好为“{family_budget}”，说明学费不是最强约束，但中外合作、异地培养和读研成本仍然要单独核算。"
+
+    def _has_strong_direction_match(self, recommendation: dict[str, Any]) -> bool:
+        tags = set(recommendation.get("decision_tags") or [])
+        return bool(tags.intersection({"专业贴合", "职业导向"}))
