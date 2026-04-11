@@ -79,6 +79,11 @@
   font-weight: 700;
 }
 
+.stat-value.compact {
+  font-size: 24rpx;
+  line-height: 1.6;
+}
+
 .section-title {
   margin-bottom: 14rpx;
   font-size: 30rpx;
@@ -89,6 +94,10 @@
 .text-block {
   color: #334155;
   line-height: 1.8;
+}
+
+.engine-note {
+  margin-top: 16rpx;
 }
 
 .preserve {

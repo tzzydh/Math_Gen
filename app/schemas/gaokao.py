@@ -13,6 +13,8 @@ class GaokaoPlanRequest(BaseModel):
     career_preferences: str | None = Field(default=None, max_length=255)
     family_budget: str | None = Field(default=None, max_length=128)
     notes: str | None = Field(default=None, max_length=1000)
+    advisor_mode: str | None = Field(default="hybrid", max_length=32)
+    advisor_model: str | None = Field(default=None, max_length=128)
 
 
 class GaokaoConsultationRequest(BaseModel):
@@ -84,11 +86,16 @@ class GaokaoPlanResponse(BaseModel):
     calculated_rank: int
     subject_combination: str
     summary: str
+    advisor_mode: str = "rules_only"
+    advisor_model: str | None = None
+    llm_enhanced: bool = False
+    advisor_engine_note: str | None = None
     direction_advice: list[str] = Field(default_factory=list)
     direction_cards: list[GaokaoDirectionCard] = Field(default_factory=list)
     advisor_takeaways: list[str] = Field(default_factory=list)
     school_choice_logic: list[str] = Field(default_factory=list)
     major_observations: list[str] = Field(default_factory=list)
+    deep_analysis: list[str] = Field(default_factory=list)
     strategy: list[str] = Field(default_factory=list)
     risk_notes: list[str] = Field(default_factory=list)
     execution_checklist: list[str] = Field(default_factory=list)

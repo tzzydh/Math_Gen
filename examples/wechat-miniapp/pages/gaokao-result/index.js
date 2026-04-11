@@ -81,6 +81,9 @@ Page({
           controlLines,
           bucketGroups: this.groupByBucket(recommendations),
           recommendationCount: recommendations.length,
+          advisorModeLabel: result.llm_enhanced ? "规则打底 + 模型增强" : "纯规则模式",
+          advisorModelLabel: result.advisor_model || "系统默认 / 未启用",
+          advisorEngineNote: result.advisor_engine_note || "",
         },
       });
     } catch (error) {

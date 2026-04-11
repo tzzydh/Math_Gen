@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import math
 import re
 from collections import defaultdict
@@ -8,10 +9,13 @@ from typing import Any
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.core.config import settings
 from app.db.models.gaokao_admission_baseline import GaokaoAdmissionBaseline
 from app.db.models.gaokao_control_line import GaokaoControlLine
 from app.db.models.gaokao_score_rank import GaokaoScoreRank
 from app.schemas.gaokao import GaokaoConsultationRequest, GaokaoPlanRequest
+from app.services.vision_ocr import get_openai_client
+from core.openai_compat import call_openai_text_json
 
 
 YEAR = 2025
@@ -33,6 +37,36 @@ DEFAULT_BUCKET_COUNTS = {
     "wen": 4,
     "bao": 4,
 }
+
+GAOKAO_REPORT_PROMPT = """
+你是一名非常擅长中国高考志愿规划的资深顾问。现在系统已经基于吉林省公开数据与规则引擎，生成了一份初步志愿方案。
+你的任务不是推翻规则结果，而是在规则结论基础上做更细的顾问分析和润色，让报告更像真人顾问。
+
+请严格输出 JSON，格式如下：
+{{
+  "summary": "更完整、更像真人顾问的总评",
+  "advisor_takeaways": ["3-5条顾问结论"],
+  "school_choice_logic": ["3-5条择校逻辑"],
+  "major_observations": ["3-5条专业提醒"],
+  "deep_analysis": ["3-6条更深的顾问分析"],
+  "strategy": ["3-5条填报策略"],
+  "risk_notes": ["3-5条风险提醒"],
+  "execution_checklist": ["3-5条执行清单"]
+}}
+
+要求：
+1. 必须保留“张雪峰式”的现实、直接、面向普通家庭的判断风格，但不要攻击性表达。
+2. 不要编造学校、专业、分数线、位次。
+3. 必须围绕系统给出的规则结论展开，不要脱离输入信息空谈。
+4. 语言要具体，避免每次都像模板；要针对分数、位次、专业偏好、城市偏好、预算、职业倾向给出差异化判断。
+5. 只输出 JSON。
+
+用户输入：
+{user_payload}
+
+规则引擎结论：
+{rule_payload}
+""".strip()
 
 
 class GaokaoService:
@@ -91,6 +125,8 @@ class GaokaoService:
         if province != PROVINCE:
             raise ValueError("当前高考数据版只支持吉林省")
 
+        advisor_mode = self._normalize_advisor_mode(payload.advisor_mode)
+        advisor_model = self._resolve_advisor_model(payload.advisor_model)
         score = self._parse_positive_int(payload.score, "分数")
         track = self._infer_track(payload.subject_combination)
         control_lines = self._get_control_lines(track)
@@ -118,17 +154,65 @@ class GaokaoService:
         risk_notes = self._build_risk_notes(payload, track, score, calculated_rank, control_lines, recommendations)
         execution_checklist = self._build_execution_checklist(payload, recommendations)
         summary = self._build_summary(track, score, calculated_rank, control_lines, recommendations)
+        deep_analysis: list[str] = []
+        llm_enhanced = False
+        advisor_engine_note = "当前报告由规则引擎直接生成。"
+
+        rule_payload = {
+            "summary": summary,
+            "advisor_takeaways": advisor_takeaways,
+            "school_choice_logic": school_choice_logic,
+            "major_observations": major_observations,
+            "strategy": strategy,
+            "risk_notes": risk_notes,
+            "execution_checklist": execution_checklist,
+            "recommendations": recommendations[:8],
+            "direction_cards": direction_cards,
+            "control_lines": [
+                {"line_type": line.line_type, "score": line.score}
+                for line in control_lines
+            ],
+        }
+
+        if advisor_mode != "rules_only":
+            llm_payload = self._enhance_report_with_llm(
+                payload=payload,
+                track=track,
+                score=score,
+                rank=calculated_rank,
+                advisor_model=advisor_model,
+                rule_payload=rule_payload,
+            )
+            if llm_payload:
+                summary = llm_payload.get("summary") or summary
+                advisor_takeaways = llm_payload.get("advisor_takeaways") or advisor_takeaways
+                school_choice_logic = llm_payload.get("school_choice_logic") or school_choice_logic
+                major_observations = llm_payload.get("major_observations") or major_observations
+                deep_analysis = llm_payload.get("deep_analysis") or []
+                strategy = llm_payload.get("strategy") or strategy
+                risk_notes = llm_payload.get("risk_notes") or risk_notes
+                execution_checklist = llm_payload.get("execution_checklist") or execution_checklist
+                llm_enhanced = True
+                advisor_engine_note = f"本次先由吉林数据规则引擎做硬判断，再使用 {advisor_model} 做顾问润色与深度分析。"
+            else:
+                advisor_mode = "rules_only"
+                advisor_engine_note = f"本次尝试使用 {advisor_model} 做深度顾问分析，但模型增强未成功，已自动回退到纯规则模式。"
 
         return {
             "year": YEAR,
             "track": track,
             "calculated_rank": calculated_rank,
             "summary": summary,
+            "advisor_mode": advisor_mode,
+            "advisor_model": advisor_model if llm_enhanced else None,
+            "llm_enhanced": llm_enhanced,
+            "advisor_engine_note": advisor_engine_note,
             "direction_advice": direction_advice,
             "direction_cards": direction_cards,
             "advisor_takeaways": advisor_takeaways,
             "school_choice_logic": school_choice_logic,
             "major_observations": major_observations,
+            "deep_analysis": deep_analysis,
             "strategy": strategy,
             "risk_notes": risk_notes,
             "execution_checklist": execution_checklist,
@@ -225,6 +309,88 @@ class GaokaoService:
             )
         )
         return int(rank) if rank is not None else None
+
+    def _normalize_advisor_mode(self, value: str | None) -> str:
+        normalized = (value or "hybrid").strip().lower()
+        if normalized not in {"hybrid", "rules_only"}:
+            return "hybrid"
+        return normalized
+
+    def _resolve_advisor_model(self, value: str | None) -> str:
+        model = (value or settings.gaokao_default_model or settings.openai_model_name).strip()
+        return model or settings.openai_model_name
+
+    def _enhance_report_with_llm(
+        self,
+        payload: GaokaoPlanRequest,
+        track: str,
+        score: int,
+        rank: int,
+        advisor_model: str,
+        rule_payload: dict[str, Any],
+    ) -> dict[str, Any] | None:
+        if not settings.gaokao_enable_llm:
+            return None
+        if not settings.openai_api_key.strip():
+            return None
+
+        user_payload = {
+            "province": payload.province,
+            "score": score,
+            "rank": rank,
+            "track": TRACK_LABELS.get(track, track),
+            "subject_combination": payload.subject_combination,
+            "preferred_majors": payload.preferred_majors,
+            "preferred_cities": payload.preferred_cities,
+            "career_preferences": payload.career_preferences,
+            "family_budget": payload.family_budget,
+            "notes": payload.notes,
+        }
+        prompt = GAOKAO_REPORT_PROMPT.format(
+            user_payload=self._to_json_text(user_payload),
+            rule_payload=self._to_json_text(rule_payload),
+        )
+        try:
+            raw_output = call_openai_text_json(
+                client=get_openai_client(),
+                model=advisor_model,
+                prompt=prompt,
+                timeout=max(settings.ocr_timeout_seconds, 90),
+            )
+            payload_json = self._parse_json_payload(raw_output)
+        except Exception:
+            return None
+
+        return {
+            "summary": str(payload_json.get("summary", "")).strip(),
+            "advisor_takeaways": self._normalize_text_list(payload_json.get("advisor_takeaways")),
+            "school_choice_logic": self._normalize_text_list(payload_json.get("school_choice_logic")),
+            "major_observations": self._normalize_text_list(payload_json.get("major_observations")),
+            "deep_analysis": self._normalize_text_list(payload_json.get("deep_analysis")),
+            "strategy": self._normalize_text_list(payload_json.get("strategy")),
+            "risk_notes": self._normalize_text_list(payload_json.get("risk_notes")),
+            "execution_checklist": self._normalize_text_list(payload_json.get("execution_checklist")),
+        }
+
+    def _normalize_text_list(self, value: Any) -> list[str]:
+        if isinstance(value, list):
+            return [str(item).strip() for item in value if str(item).strip()]
+        if isinstance(value, str) and value.strip():
+            return [value.strip()]
+        return []
+
+    def _parse_json_payload(self, raw_text: str) -> dict[str, Any]:
+        sanitized = raw_text.strip()
+        sanitized = re.sub(r"^```json\s*", "", sanitized, flags=re.IGNORECASE)
+        sanitized = re.sub(r"^```\s*", "", sanitized)
+        sanitized = re.sub(r"\s*```$", "", sanitized)
+        match = re.search(r"\{.*\}", sanitized, flags=re.DOTALL)
+        if match:
+            sanitized = match.group(0)
+        return json.loads(sanitized)
+
+    def _to_json_text(self, payload: dict[str, Any]) -> str:
+        return json.dumps(payload, ensure_ascii=False, indent=2)
 
     def _build_consult_questions(
         self,

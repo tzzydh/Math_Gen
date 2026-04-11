@@ -2,13 +2,14 @@
   <view class="header-card">
     <view class="header-title">吉林省高考志愿顾问</view>
     <view class="header-subtitle">
-      先做张雪峰式追问，再生成最终志愿方案。先把问题问透，再给结论。
+      先做顾问问诊，再生成最终方案。现在支持“规则打底 + 大模型深度分析”的混合模式，也支持纯规则模式。
     </view>
     <view class="header-meta">登录状态：{{token ? '已登录' : '未登录'}}</view>
   </view>
 
   <view class="card">
     <view class="section-title">第一步：基础信息</view>
+
     <view class="field-group">
       <view class="field-label">当前版本</view>
       <view class="static-field">仅支持吉林省</view>
@@ -52,7 +53,7 @@
       />
     </view>
 
-    <button class="secondary-btn" bindtap="handleStartConsultation" disabled="{{!token}}">
+    <button class="secondary-btn" bindtap="handleStartConsultation" disabled="{{!token}}" loading="{{consulting}}">
       开始顾问问诊
     </button>
     <view class="meta-line">问诊状态：{{consultStatus || '-'}}</view>
@@ -97,7 +98,46 @@
   </view>
 
   <view class="card">
-    <view class="section-title">第三步：补全回答并生成方案</view>
+    <view class="section-title">第三步：补全信息并生成最终方案</view>
+
+    <view class="field-group">
+      <view class="field-label">顾问模式</view>
+      <view class="chip-row">
+        <view
+          wx:for="{{advisorModeOptions}}"
+          wx:key="value"
+          class="chip {{advisorMode === item.value ? 'chip-active' : ''}}"
+          data-value="{{item.value}}"
+          bindtap="handleAdvisorModeTap"
+        >
+          {{item.label}}
+        </view>
+      </view>
+      <view class="question-why">混合增强：规则先出硬结论，再由大模型做顾问润色与深度分析。</view>
+    </view>
+
+    <view class="field-group">
+      <view class="field-label">顾问模型</view>
+      <view class="chip-row">
+        <view
+          wx:for="{{advisorModelOptions}}"
+          wx:key="value"
+          class="chip {{advisorModel === item.value ? 'chip-active' : ''}}"
+          data-value="{{item.value}}"
+          bindtap="handleAdvisorModelTap"
+        >
+          {{item.label}}
+        </view>
+      </view>
+      <input
+        class="field-input"
+        placeholder="可选：自定义模型名，留空则用系统默认"
+        placeholder-class="field-placeholder"
+        data-field="advisorModel"
+        value="{{advisorModel}}"
+        bindinput="handleFieldInput"
+      />
+    </view>
 
     <view class="field-group">
       <view class="field-label">意向专业</view>
@@ -151,7 +191,7 @@
       <view class="field-label">补充说明</view>
       <textarea
         class="notes-input"
-        placeholder="例如：能否接受省外、是否优先双一流、是否接受调剂。"
+        placeholder="例如：是否接受省外、是否优先双一流、是否接受调剂"
         placeholder-class="field-placeholder"
         data-field="notes"
         value="{{notes}}"
@@ -159,7 +199,7 @@
       />
     </view>
 
-    <button class="primary-btn" bindtap="handleCreatePlan" disabled="{{!token}}">
+    <button class="primary-btn" bindtap="handleCreatePlan" disabled="{{!token}}" loading="{{creatingPlan}}">
       生成最终志愿方案
     </button>
 

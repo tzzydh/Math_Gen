@@ -17,6 +17,8 @@ class Settings(BaseSettings):
     openai_base_url: str = "https://api.openai.com/v1"
     openai_model_name: str = "gpt-4o-mini"
     ocr_timeout_seconds: int = 45
+    gaokao_enable_llm: bool = True
+    gaokao_default_model: str = ""
 
     wechat_appid: str = ""
     wechat_secret: str = ""

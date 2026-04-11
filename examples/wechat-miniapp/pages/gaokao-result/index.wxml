@@ -25,6 +25,21 @@
   </view>
 
   <view class="card">
+    <view class="section-title">顾问引擎</view>
+    <view class="stats-row">
+      <view class="stat-pill">
+        <view class="stat-label">生成方式</view>
+        <view class="stat-value compact">{{result.advisorModeLabel}}</view>
+      </view>
+      <view class="stat-pill">
+        <view class="stat-label">使用模型</view>
+        <view class="stat-value compact">{{result.advisorModelLabel}}</view>
+      </view>
+    </view>
+    <view class="text-block engine-note" wx:if="{{result.advisorEngineNote}}">{{result.advisorEngineNote}}</view>
+  </view>
+
+  <view class="card">
     <view class="section-title">顾问结论</view>
     <view class="text-block preserve">{{result.summary}}</view>
   </view>
@@ -50,6 +65,14 @@
   <view class="card">
     <view class="section-title">张雪峰式判断</view>
     <view wx:for="{{result.advisor_takeaways}}" wx:key="index" class="list-item">
+      <view class="bullet"></view>
+      <view class="list-text">{{item}}</view>
+    </view>
+  </view>
+
+  <view class="card" wx:if="{{result.deep_analysis.length}}">
+    <view class="section-title">深度顾问分析</view>
+    <view wx:for="{{result.deep_analysis}}" wx:key="index" class="list-item">
       <view class="bullet"></view>
       <view class="list-text">{{item}}</view>
     </view>

@@ -108,6 +108,8 @@ class GaokaoReportService:
                         f"分数：{escape(plan.score)}",
                         f"位次：{escape(str(details.get('calculated_rank', plan.rank or '-')))}",
                         f"选科组合：{escape(plan.subject_combination)}",
+                        f"顾问模式：{escape('规则打底 + 模型增强' if details.get('llm_enhanced') else '纯规则模式')}",
+                        f"使用模型：{escape(str(details.get('advisor_model') or '系统默认 / 未启用'))}",
                     ]
                 ),
                 meta_style,
@@ -141,15 +143,29 @@ class GaokaoReportService:
             Paragraph("五、专业提醒", heading_style),
             Paragraph(self._bullet_lines(details.get("major_observations", [])), body_style),
             Spacer(1, 10),
-            Paragraph("六、填报策略与风险", heading_style),
+        ]
+
+        deep_analysis = details.get("deep_analysis", [])
+        if deep_analysis:
+            story.extend(
+                [
+                    Paragraph("六、深度顾问分析", heading_style),
+                    Paragraph(self._bullet_lines(deep_analysis), body_style),
+                    Spacer(1, 10),
+                ]
+            )
+
+        story.extend(
+            [
+            Paragraph("七、填报策略与风险", heading_style),
             Paragraph(self._bullet_lines(details.get("strategy", [])), body_style),
             Spacer(1, 4),
             Paragraph(self._bullet_lines(details.get("risk_notes", [])), body_style),
             Spacer(1, 10),
-            Paragraph("七、执行清单", heading_style),
+            Paragraph("八、执行清单", heading_style),
             Paragraph(self._bullet_lines(details.get("execution_checklist", [])), body_style),
             Spacer(1, 10),
-            Paragraph("八、关键分数线", heading_style),
+            Paragraph("九、关键分数线", heading_style),
             Paragraph(
                 self._bullet_lines(
                     [
@@ -161,8 +177,9 @@ class GaokaoReportService:
                 body_style,
             ),
             Spacer(1, 10),
-            Paragraph("九、推荐院校与专业", heading_style),
-        ]
+            Paragraph("十、推荐院校与专业", heading_style),
+            ]
+        )
 
         for index, item in enumerate(recommendations, start=1):
             if not isinstance(item, dict):

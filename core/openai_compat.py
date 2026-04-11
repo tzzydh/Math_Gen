@@ -79,13 +79,24 @@ def call_openai_vision_json(
 
 def call_openai_text_json(client: Any, model: str, prompt: str, timeout: int = 45) -> str:
     """Call a text model and request JSON output."""
-    response = client.chat.completions.create(
-        model=model,
-        response_format={"type": "json_object"},
-        messages=[{
-            "role": "user",
-            "content": prompt,
-        }],
-        timeout=timeout,
-    )
-    return extract_text_from_openai_response(response)
+    try:
+        response = client.chat.completions.create(
+            model=model,
+            response_format={"type": "json_object"},
+            messages=[{
+                "role": "user",
+                "content": prompt,
+            }],
+            timeout=timeout,
+        )
+        return extract_text_from_openai_response(response)
+    except Exception:
+        response = client.chat.completions.create(
+            model=model,
+            messages=[{
+                "role": "user",
+                "content": prompt,
+            }],
+            timeout=timeout,
+        )
+        return extract_text_from_openai_response(response)

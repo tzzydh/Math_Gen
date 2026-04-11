@@ -1,5 +1,17 @@
 const { request } = require("../../utils/request");
 
+const ADVISOR_MODE_OPTIONS = [
+  { label: "混合增强", value: "hybrid" },
+  { label: "纯规则", value: "rules_only" },
+];
+
+const ADVISOR_MODEL_OPTIONS = [
+  { label: "系统默认", value: "" },
+  { label: "GLM-4.5-Air", value: "GLM-4.5-Air" },
+  { label: "GLM-4.5", value: "GLM-4.5" },
+  { label: "gpt-4o-mini", value: "gpt-4o-mini" },
+];
+
 function getErrorMessage(error, fallback) {
   if (!error) return fallback;
   if (typeof error === "string") return error;
@@ -20,6 +32,10 @@ Page({
     careerPreferences: "",
     familyBudget: "",
     notes: "",
+    advisorMode: "hybrid",
+    advisorModel: "",
+    advisorModeOptions: ADVISOR_MODE_OPTIONS,
+    advisorModelOptions: ADVISOR_MODEL_OPTIONS,
     consultStatus: "",
     consultError: "",
     consultation: null,
@@ -57,6 +73,14 @@ Page({
     });
   },
 
+  handleAdvisorModeTap(event) {
+    this.setData({ advisorMode: event.currentTarget.dataset.value });
+  },
+
+  handleAdvisorModelTap(event) {
+    this.setData({ advisorModel: event.currentTarget.dataset.value });
+  },
+
   buildPayload() {
     return {
       province: "吉林省",
@@ -68,6 +92,8 @@ Page({
       career_preferences: (this.data.careerPreferences || "").trim(),
       family_budget: (this.data.familyBudget || "").trim(),
       notes: (this.data.notes || "").trim(),
+      advisor_mode: this.data.advisorMode,
+      advisor_model: (this.data.advisorModel || "").trim() || undefined,
     };
   },
 
