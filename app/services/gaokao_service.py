@@ -336,8 +336,9 @@ class GaokaoService:
         raise ValueError("暂时只支持吉林省新高考物理类或历史类组合")
 
     def _resolve_rank(self, track: str, score: int, raw_rank: str | None) -> int:
-        if raw_rank and raw_rank.strip():
-            return self._parse_positive_int(raw_rank, "位次")
+        parsed_rank = self._safe_parse_int(raw_rank)
+        if parsed_rank is not None:
+            return parsed_rank
 
         rank = self.db.scalar(
             select(GaokaoScoreRank.rank).where(

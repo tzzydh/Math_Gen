@@ -86,13 +86,16 @@
           wx:for="{{question.suggested_options}}"
           wx:key="index"
           wx:for-item="option"
-          class="chip"
+          class="chip {{question.currentValue === option ? 'chip-active' : ''}}"
           data-field="{{question.field}}"
           data-value="{{option}}"
           bindtap="handleQuestionOptionTap"
         >
           {{option}}
         </view>
+      </view>
+      <view class="selected-hint" wx:if="{{question.currentValue}}">
+        当前已选：{{question.currentValue}}
       </view>
     </view>
   </view>

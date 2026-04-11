@@ -15,9 +15,16 @@ const ADVISOR_MODEL_OPTIONS = [
 function getErrorMessage(error, fallback) {
   if (!error) return fallback;
   if (typeof error === "string") return error;
+  if (error.errMsg && String(error.errMsg).trim() === "request:ok") return fallback;
   if (error.detail) return error.detail;
   if (error.errMsg) return error.errMsg;
   return fallback;
+}
+
+function normalizeRankValue(value) {
+  const text = String(value || "").trim();
+  const matched = text.match(/\d+/);
+  return matched ? matched[0] : "";
 }
 
 Page({
@@ -45,6 +52,36 @@ Page({
     creatingPlan: false,
   },
 
+  getFieldValue(field) {
+    const fieldMap = {
+      score: this.data.score,
+      rank: this.data.rank,
+      subjectCombination: this.data.subjectCombination,
+      preferredMajors: this.data.preferredMajors,
+      preferredCities: this.data.preferredCities,
+      careerPreferences: this.data.careerPreferences,
+      familyBudget: this.data.familyBudget,
+      notes: this.data.notes,
+      subject_combination: this.data.subjectCombination,
+      preferred_majors: this.data.preferredMajors,
+      preferred_cities: this.data.preferredCities,
+      career_preferences: this.data.careerPreferences,
+      family_budget: this.data.familyBudget,
+    };
+    return fieldMap[field] || "";
+  },
+
+  decorateConsultation(consultation) {
+    if (!consultation) return null;
+    return {
+      ...consultation,
+      questions: (consultation.questions || []).map((question) => ({
+        ...question,
+        currentValue: this.getFieldValue(question.field),
+      })),
+    };
+  },
+
   onShow() {
     const token = wx.getStorageSync("access_token") || "";
     this.setData({
@@ -59,6 +96,7 @@ Page({
       [field]: event.detail.value,
       consultError: "",
       planningError: "",
+      consultation: this.decorateConsultation(this.data.consultation),
     });
   },
 
@@ -70,6 +108,7 @@ Page({
       [field]: value,
       consultError: "",
       planningError: "",
+      consultation: this.decorateConsultation(this.data.consultation),
     });
   },
 
@@ -85,7 +124,7 @@ Page({
     return {
       province: "吉林省",
       score: (this.data.score || "").trim(),
-      rank: (this.data.rank || "").trim(),
+      rank: normalizeRankValue(this.data.rank),
       subject_combination: (this.data.subjectCombination || "").trim(),
       preferred_majors: (this.data.preferredMajors || "").trim(),
       preferred_cities: (this.data.preferredCities || "").trim(),
@@ -125,8 +164,12 @@ Page({
         data: this.buildPayload(),
       });
 
+      if (!result || !result.readiness) {
+        throw new Error("问诊结果为空，请重试");
+      }
+
       this.setData({
-        consultation: result,
+        consultation: this.decorateConsultation(result),
         consultStatus: result.readiness,
       });
       wx.showToast({

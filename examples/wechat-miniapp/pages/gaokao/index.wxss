@@ -256,10 +256,19 @@
   border: 1rpx solid #bbf7d0;
   color: #166534;
   font-size: 24rpx;
+  transition: all 0.2s ease;
 }
 
 .chip-active {
   background: #16a34a;
   border-color: #16a34a;
   color: #ffffff;
+  box-shadow: 0 8rpx 18rpx rgba(22, 163, 74, 0.2);
+}
+
+.selected-hint {
+  margin-top: 14rpx;
+  color: #15803d;
+  font-size: 24rpx;
+  line-height: 1.6;
 }
