@@ -821,12 +821,16 @@ class GaokaoService:
             base_url = (settings.gaokao_glm_base_url or settings.openai_base_url).strip()
         provider_label = self._provider_label(advisor_provider)
 
+        if "503" in lower_message or "service unavailable" in lower_message:
+            return f"{provider_label} 当前服务繁忙，顾问增强暂时不可用，系统已自动回退到规则模式"
+        if "timed out" in lower_message or "timeout" in lower_message or "read operation timed out" in lower_message:
+            return f"{provider_label} 响应超时，顾问增强暂时不可用，系统已自动回退到规则模式"
+        if "connection" in lower_message and ("failed" in lower_message or "error" in lower_message):
+            return f"{provider_label} 网络连接不稳定，顾问增强暂时不可用，系统已自动回退到规则模式"
         if "model" in lower_message and ("not found" in lower_message or "does not exist" in lower_message):
             return f"{provider_label} 的模型 {advisor_model} 在当前接口 {base_url} 下不可用"
         if "unsupported" in lower_message and "model" in lower_message:
             return f"{provider_label} 的模型 {advisor_model} 与当前接口 {base_url} 不兼容"
-        if "timeout" in lower_message:
-            return f"{provider_label} 的模型 {advisor_model} 调用超时"
         if "401" in lower_message or "unauthorized" in lower_message or "invalid api key" in lower_message:
             return f"{provider_label} 鉴权失败，请检查 API Key"
         if "429" in lower_message or "quota" in lower_message or "rate limit" in lower_message:
