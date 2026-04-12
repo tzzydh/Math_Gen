@@ -3,7 +3,7 @@
     <view class="hero-eyebrow">吉林高考志愿系统</view>
     <view class="hero-title">先问清条件，再生成最终方案</view>
     <view class="hero-subtitle">
-      这页不再做成长表单。我们把问诊拆成 3 个模块：基础建档、顾问追问、最终方案，你可以直接点进对应模块，不会因为往下滑而丢信息。
+      问诊拆成 3 个模块：基础建档、顾问追问、最终方案。每一步都能直接点进去，不需要长距离来回滚动。
     </view>
     <view class="hero-meta">
       <view class="hero-pill">当前省份：{{province}}</view>
@@ -101,7 +101,7 @@
 
   <view wx:if="{{activeModule === 'consult'}}" class="panel-card consult-card">
     <view class="panel-title">模块二：顾问追问</view>
-    <view class="panel-desc">这一步只处理关键信息补齐。每个问题点一个最贴近的答案就行，系统会自动回填到最终方案里。</view>
+    <view class="panel-desc">每个问题点一个最贴近的答案就行。选中后会立即生效，确认无误再进入最终方案。</view>
 
     <view wx:if="{{!consultation}}" class="empty-card">
       <view class="empty-title">还没有生成追问</view>
@@ -110,6 +110,8 @@
 
     <view wx:if="{{consultation}}">
       <view class="consult-opening">{{consultation.opening}}</view>
+      <view class="consult-progress">{{consultation.completionText}}</view>
+
       <view wx:for="{{consultation.quick_judgment}}" wx:key="index" wx:for-item="judgment" class="list-item">
         <view class="bullet"></view>
         <view class="list-text">{{judgment}}</view>
@@ -141,12 +143,16 @@
           当前已选：{{question.currentValue}}
         </view>
       </view>
+
+      <button class="primary-btn consult-confirm-btn" bindtap="handleConfirmConsultation">
+        确认已选完，进入最终方案
+      </button>
     </view>
   </view>
 
   <view wx:if="{{activeModule === 'final'}}" class="panel-card">
     <view class="panel-title">模块三：最终方案</view>
-    <view class="panel-desc">这一块只放真正影响结果的偏好项。你可以反复切换顾问模式、模型和偏好，不会影响前面已经建好的基础档案。</view>
+    <view class="panel-desc">这里只放真正影响结果的偏好项。前面追问里选过的内容，已经自动带到这里了。</view>
 
     <view class="field-group">
       <view class="field-label">顾问模式</view>
@@ -162,6 +168,22 @@
         </view>
       </view>
       <view class="question-why">混合增强：规则引擎先给硬结论，再由大模型做顾问级润色与深度分析。</view>
+    </view>
+
+    <view class="field-group">
+      <view class="field-label">模型供应商</view>
+      <view class="chip-row">
+        <view
+          wx:for="{{advisorProviderOptions}}"
+          wx:key="value"
+          class="chip {{advisorProvider === item.value ? 'chip-active' : ''}}"
+          data-value="{{item.value}}"
+          bindtap="handleAdvisorProviderTap"
+        >
+          {{item.label}}
+        </view>
+      </view>
+      <view class="question-why">GLM 走智谱兼容接口；OpenAI 走独立的 OpenAI 接口与密钥。</view>
     </view>
 
     <view class="field-group">

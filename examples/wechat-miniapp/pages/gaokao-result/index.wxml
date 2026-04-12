@@ -32,8 +32,8 @@
         <view class="stat-value compact">{{result.advisorModeLabel}}</view>
       </view>
       <view class="stat-pill">
-        <view class="stat-label">使用模型</view>
-        <view class="stat-value compact">{{result.advisorModelLabel}}</view>
+        <view class="stat-label">供应商 / 模型</view>
+        <view class="stat-value compact">{{result.advisorProviderLabel}} / {{result.advisorModelLabel}}</view>
       </view>
     </view>
     <view class="text-block engine-note" wx:if="{{result.advisorEngineNote}}">{{result.advisorEngineNote}}</view>

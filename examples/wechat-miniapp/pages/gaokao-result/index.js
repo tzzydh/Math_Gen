@@ -32,6 +32,12 @@ function getErrorMessage(error, fallback) {
   return fallback;
 }
 
+function getAdvisorProviderLabel(provider) {
+  if (provider === "openai") return "OpenAI";
+  if (provider === "glm") return "GLM / 智谱兼容接口";
+  return "系统默认";
+}
+
 Page({
   data: {
     token: "",
@@ -86,7 +92,8 @@ Page({
           extendedPoolGroups: this.groupExtendedPool(result.extended_pool || []),
           recommendationCount: recommendations.length,
           advisorModeLabel: result.llm_enhanced ? "规则打底 + 模型增强" : "纯规则模式",
-          advisorModelLabel: result.advisor_model || "系统默认 / 未启用",
+          advisorProviderLabel: getAdvisorProviderLabel(result.advisor_provider),
+          advisorModelLabel: result.advisor_model || "未启用",
           advisorEngineNote: result.advisor_engine_note || "",
         },
       });

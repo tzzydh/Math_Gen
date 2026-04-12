@@ -14,6 +14,7 @@ class GaokaoPlanRequest(BaseModel):
     family_budget: str | None = Field(default=None, max_length=128)
     notes: str | None = Field(default=None, max_length=1000)
     advisor_mode: str | None = Field(default="hybrid", max_length=32)
+    advisor_provider: str | None = Field(default=None, max_length=32)
     advisor_model: str | None = Field(default=None, max_length=128)
 
 
@@ -105,6 +106,7 @@ class GaokaoPlanResponse(BaseModel):
     subject_combination: str
     summary: str
     advisor_mode: str = "rules_only"
+    advisor_provider: str | None = None
     advisor_model: str | None = None
     llm_enhanced: bool = False
     advisor_engine_note: str | None = None

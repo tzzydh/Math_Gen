@@ -1,10 +1,8 @@
 <view class="page">
   <view class="hero">
     <view class="hero-eyebrow">AI 提分助手</view>
-    <view class="hero-title">诊断、批改、报考，统一放进一个学习决策中枢</view>
-    <view class="hero-subtitle">
-      数学诊断、语文作文、英语作文、高考志愿四条主线独立运行，但又共享登录、报告、下载与历史记录能力，适合直接作为商业化产品底座继续打磨。
-    </view>
+    <view class="hero-title">诊断、批改、报考</view>
+    <view class="hero-subtitle">四个模块，直接进入，快速出结果。</view>
     <view class="hero-pills">
       <view class="hero-pill">登录状态：{{token ? '已登录' : '未登录'}}</view>
       <view class="hero-pill">当前用户：{{userLabel}}</view>
@@ -16,7 +14,7 @@
 
   <view class="overview-card">
     <view class="overview-title">核心模块</view>
-    <view class="overview-subtitle">不再靠长页面堆功能。每个模块都能直接点进去独立处理，避免信息被滚动淹没。</view>
+    <view class="overview-subtitle">点卡片直接进入对应模块。</view>
   </view>
 
   <view class="module-grid">

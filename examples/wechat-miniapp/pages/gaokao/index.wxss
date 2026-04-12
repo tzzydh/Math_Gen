@@ -271,6 +271,17 @@
   line-height: 1.82;
 }
 
+.consult-progress {
+  margin-top: 18rpx;
+  padding: 18rpx 20rpx;
+  border-radius: 20rpx;
+  background: linear-gradient(180deg, #f4fff7 0%, #ecfdf3 100%);
+  border: 1rpx solid #bbf7d0;
+  color: #166534;
+  font-size: 24rpx;
+  font-weight: 700;
+}
+
 .next-step {
   margin-top: 18rpx;
   padding: 20rpx;
@@ -379,4 +390,8 @@
   color: #15803d;
   font-size: 24rpx;
   line-height: 1.6;
+}
+
+.consult-confirm-btn {
+  margin-top: 26rpx;
 }

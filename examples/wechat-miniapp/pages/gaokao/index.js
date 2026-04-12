@@ -5,7 +5,13 @@ const ADVISOR_MODE_OPTIONS = [
   { label: "纯规则模式", value: "rules_only" },
 ];
 
+const ADVISOR_PROVIDER_OPTIONS = [
+  { label: "GLM / 智谱兼容接口", value: "glm" },
+  { label: "OpenAI", value: "openai" },
+];
+
 const ADVISOR_MODEL_OPTIONS = [
+  { label: "GLM-4.5V", value: "GLM-4.5V" },
   { label: "系统默认", value: "" },
   { label: "GLM-4.5-Air", value: "GLM-4.5-Air" },
   { label: "GLM-4.5", value: "GLM-4.5" },
@@ -48,8 +54,10 @@ Page({
     familyBudget: "",
     notes: "",
     advisorMode: "hybrid",
+    advisorProvider: "glm",
     advisorModel: "",
     advisorModeOptions: ADVISOR_MODE_OPTIONS,
+    advisorProviderOptions: ADVISOR_PROVIDER_OPTIONS,
     advisorModelOptions: ADVISOR_MODEL_OPTIONS,
     consultStatus: "",
     consultError: "",
@@ -81,12 +89,23 @@ Page({
 
   decorateConsultation(consultation) {
     if (!consultation) return null;
+    const questions = (consultation.questions || []).map((question) => ({
+      ...question,
+      currentValue: this.getFieldValue(question.field),
+    }));
+    const requiredQuestions = questions.filter((question) => question.required);
+    const answeredRequired = requiredQuestions.filter((question) =>
+      String(question.currentValue || "").trim()
+    ).length;
     return {
       ...consultation,
-      questions: (consultation.questions || []).map((question) => ({
-        ...question,
-        currentValue: this.getFieldValue(question.field),
-      })),
+      questions,
+      requiredCount: requiredQuestions.length,
+      answeredRequired,
+      completionText:
+        requiredQuestions.length > 0
+          ? `${answeredRequired}/${requiredQuestions.length} 必答已完成`
+          : "当前没有必答项",
     };
   },
 
@@ -130,8 +149,37 @@ Page({
     this.setData({ advisorMode: event.currentTarget.dataset.value });
   },
 
+  handleAdvisorProviderTap(event) {
+    this.setData({
+      advisorProvider: event.currentTarget.dataset.value,
+      advisorModel: "",
+    });
+  },
+
   handleAdvisorModelTap(event) {
     this.setData({ advisorModel: event.currentTarget.dataset.value });
+  },
+
+  handleConfirmConsultation() {
+    const consultation = this.data.consultation;
+    if (!consultation) {
+      wx.showToast({ title: "请先生成顾问问诊", icon: "none" });
+      return;
+    }
+
+    const unanswered = (consultation.questions || []).filter(
+      (question) => question.required && !String(question.currentValue || "").trim()
+    );
+    if (unanswered.length > 0) {
+      wx.showToast({
+        title: `还有 ${unanswered.length} 个必答项未完成`,
+        icon: "none",
+      });
+      return;
+    }
+
+    this.setData({ activeModule: "final" });
+    wx.showToast({ title: "已确认，继续生成方案", icon: "success" });
   },
 
   buildPayload() {
@@ -146,6 +194,7 @@ Page({
       family_budget: (this.data.familyBudget || "").trim(),
       notes: (this.data.notes || "").trim(),
       advisor_mode: this.data.advisorMode,
+      advisor_provider: this.data.advisorProvider,
       advisor_model: (this.data.advisorModel || "").trim() || undefined,
     };
   },

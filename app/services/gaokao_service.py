@@ -8,6 +8,7 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Any
 
+from openai import OpenAI
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -16,7 +17,6 @@ from app.db.models.gaokao_admission_baseline import GaokaoAdmissionBaseline
 from app.db.models.gaokao_control_line import GaokaoControlLine
 from app.db.models.gaokao_score_rank import GaokaoScoreRank
 from app.schemas.gaokao import GaokaoConsultationRequest, GaokaoPlanRequest
-from app.services.vision_ocr import get_openai_client
 from core.openai_compat import call_openai_text_json
 
 
@@ -166,7 +166,11 @@ class GaokaoService:
             raise ValueError("当前高考数据版只支持吉林省")
 
         advisor_mode = self._normalize_advisor_mode(payload.advisor_mode)
-        advisor_model = self._resolve_advisor_model(payload.advisor_model)
+        advisor_provider = self._resolve_advisor_provider(payload.advisor_provider)
+        advisor_model = self._resolve_advisor_model(
+            provider=advisor_provider,
+            model_value=payload.advisor_model,
+        )
         score = self._parse_positive_int(payload.score, "分数")
         track = self._infer_track(payload.subject_combination)
         control_lines = self._get_control_lines(track)
@@ -201,6 +205,8 @@ class GaokaoService:
         deep_analysis: list[str] = []
         llm_enhanced = False
         advisor_engine_note = "当前报告由规则引擎直接生成。"
+        attempted_advisor_provider = advisor_provider if advisor_mode != "rules_only" else None
+        attempted_advisor_model = advisor_model if advisor_mode != "rules_only" else None
 
         rule_payload = {
             "summary": summary,
@@ -223,11 +229,12 @@ class GaokaoService:
         }
 
         if advisor_mode != "rules_only":
-            llm_payload = self._enhance_report_with_llm(
+            llm_payload, llm_failure_reason = self._enhance_report_with_llm(
                 payload=payload,
                 track=track,
                 score=score,
                 rank=calculated_rank,
+                advisor_provider=advisor_provider,
                 advisor_model=advisor_model,
                 rule_payload=rule_payload,
             )
@@ -241,10 +248,17 @@ class GaokaoService:
                 risk_notes = llm_payload.get("risk_notes") or risk_notes
                 execution_checklist = llm_payload.get("execution_checklist") or execution_checklist
                 llm_enhanced = True
-                advisor_engine_note = f"本次先由吉林数据规则引擎做硬判断，再使用 {advisor_model} 做顾问润色与深度分析。"
+                advisor_engine_note = (
+                    f"本次先由吉林数据规则引擎做硬判断，再使用 {self._provider_label(advisor_provider)} "
+                    f"的 {advisor_model} 做顾问润色与深度分析。"
+                )
             else:
                 advisor_mode = "rules_only"
-                advisor_engine_note = f"本次尝试使用 {advisor_model} 做深度顾问分析，但模型增强未成功，已自动回退到纯规则模式。"
+                reason_text = f" 原因：{llm_failure_reason}" if llm_failure_reason else ""
+                advisor_engine_note = (
+                    f"本次尝试使用 {self._provider_label(advisor_provider)} 的 {advisor_model} 做深度顾问分析，但模型增强未成功，"
+                    f"已自动回退到纯规则模式。{reason_text}"
+                )
 
         return {
             "year": YEAR,
@@ -252,7 +266,8 @@ class GaokaoService:
             "calculated_rank": calculated_rank,
             "summary": summary,
             "advisor_mode": advisor_mode,
-            "advisor_model": advisor_model if llm_enhanced else None,
+            "advisor_provider": attempted_advisor_provider,
+            "advisor_model": attempted_advisor_model,
             "llm_enhanced": llm_enhanced,
             "advisor_engine_note": advisor_engine_note,
             "direction_advice": direction_advice,
@@ -369,9 +384,50 @@ class GaokaoService:
             return "hybrid"
         return normalized
 
-    def _resolve_advisor_model(self, value: str | None) -> str:
-        model = (value or settings.gaokao_default_model or settings.openai_model_name).strip()
-        return model or settings.openai_model_name
+    def _resolve_advisor_provider(self, value: str | None) -> str:
+        provider = (value or settings.gaokao_default_provider or "glm").strip().lower()
+        if provider not in {"glm", "openai"}:
+            return "glm"
+        return provider
+
+    def _resolve_advisor_model(self, provider: str, model_value: str | None) -> str:
+        model = (model_value or "").strip()
+        if model:
+            return model
+        if provider == "openai":
+            default_model = (
+                settings.gaokao_openai_default_model
+                or settings.gaokao_default_model
+                or "gpt-4o-mini"
+            ).strip()
+            return default_model or "gpt-4o-mini"
+        default_model = (
+            settings.gaokao_glm_default_model
+            or settings.gaokao_default_model
+            or settings.openai_model_name
+        ).strip()
+        return default_model or settings.openai_model_name
+
+    def _provider_label(self, provider: str | None) -> str:
+        labels = {
+            "glm": "GLM / 智谱兼容接口",
+            "openai": "OpenAI",
+        }
+        return labels.get(provider or "", provider or "默认供应商")
+
+    def _build_advisor_client(self, provider: str) -> OpenAI:
+        if provider == "openai":
+            api_key = settings.gaokao_openai_api_key.strip()
+            base_url = (settings.gaokao_openai_base_url or "https://api.openai.com/v1").strip()
+        else:
+            api_key = (settings.gaokao_glm_api_key or settings.openai_api_key).strip()
+            base_url = (settings.gaokao_glm_base_url or settings.openai_base_url).strip()
+
+        if not api_key:
+            raise ValueError(f"{self._provider_label(provider)} 未配置可用的 API Key")
+        if not base_url:
+            raise ValueError(f"{self._provider_label(provider)} 未配置可用的 Base URL")
+        return OpenAI(api_key=api_key, base_url=base_url)
 
     def _enhance_report_with_llm(
         self,
@@ -379,14 +435,12 @@ class GaokaoService:
         track: str,
         score: int,
         rank: int,
+        advisor_provider: str,
         advisor_model: str,
         rule_payload: dict[str, Any],
-    ) -> dict[str, Any] | None:
+    ) -> tuple[dict[str, Any] | None, str | None]:
         if not settings.gaokao_enable_llm:
-            return None
-        if not settings.openai_api_key.strip():
-            return None
-
+            return None, "系统已关闭模型增强"
         user_payload = {
             "province": payload.province,
             "score": score,
@@ -405,14 +459,14 @@ class GaokaoService:
         )
         try:
             raw_output = call_openai_text_json(
-                client=get_openai_client(),
+                client=self._build_advisor_client(advisor_provider),
                 model=advisor_model,
                 prompt=prompt,
                 timeout=max(settings.ocr_timeout_seconds, 90),
             )
             payload_json = self._parse_json_payload(raw_output)
-        except Exception:
-            return None
+        except Exception as exc:
+            return None, self._summarize_llm_error(exc, advisor_provider, advisor_model)
 
         return {
             "summary": str(payload_json.get("summary", "")).strip(),
@@ -423,7 +477,32 @@ class GaokaoService:
             "strategy": self._normalize_text_list(payload_json.get("strategy")),
             "risk_notes": self._normalize_text_list(payload_json.get("risk_notes")),
             "execution_checklist": self._normalize_text_list(payload_json.get("execution_checklist")),
-        }
+        }, None
+
+    def _summarize_llm_error(self, exc: Exception, advisor_provider: str, advisor_model: str) -> str:
+        message = str(exc).strip() or exc.__class__.__name__
+        lower_message = message.lower()
+        if advisor_provider == "openai":
+            base_url = (settings.gaokao_openai_base_url or "https://api.openai.com/v1").strip()
+        else:
+            base_url = (settings.gaokao_glm_base_url or settings.openai_base_url).strip()
+        provider_label = self._provider_label(advisor_provider)
+
+        if "model" in lower_message and ("not found" in lower_message or "does not exist" in lower_message):
+            return f"{provider_label} 的模型 {advisor_model} 在当前接口 {base_url} 下不可用"
+        if "unsupported" in lower_message and "model" in lower_message:
+            return f"{provider_label} 的模型 {advisor_model} 与当前接口 {base_url} 不兼容"
+        if "timeout" in lower_message:
+            return f"{provider_label} 的模型 {advisor_model} 调用超时"
+        if "401" in lower_message or "unauthorized" in lower_message or "invalid api key" in lower_message:
+            return f"{provider_label} 鉴权失败，请检查 API Key"
+        if "429" in lower_message or "quota" in lower_message or "rate limit" in lower_message:
+            return f"{provider_label} 额度不足或触发限流"
+
+        short_message = message.replace("\n", " ")
+        if len(short_message) > 120:
+            short_message = short_message[:117] + "..."
+        return short_message
 
     def _normalize_text_list(self, value: Any) -> list[str]:
         if isinstance(value, list):
