@@ -1,6 +1,6 @@
 const { request } = require("../../utils/request");
 
-const DEFAULT_PROVINCE = "吉林省";
+const DEFAULT_PROVINCE = "\u5409\u6797\u7701";
 
 const ADVISOR_MODE_OPTIONS = [
   { label: "混合增强", value: "hybrid" },
