@@ -1,5 +1,7 @@
 const { request } = require("../../utils/request");
 
+const DEFAULT_PROVINCE = "吉林省";
+
 const ADVISOR_MODE_OPTIONS = [
   { label: "混合增强", value: "hybrid" },
   { label: "纯规则模式", value: "rules_only" },
@@ -54,7 +56,7 @@ function normalizeRankValue(value) {
 Page({
   data: {
     token: "",
-    province: "吉林省",
+    province: DEFAULT_PROVINCE,
     activeModule: "basic",
     stepOptions: STEP_OPTIONS,
     score: "",
@@ -125,7 +127,7 @@ Page({
     const token = wx.getStorageSync("access_token") || "";
     this.setData({
       token,
-      province: "吉林省",
+      province: DEFAULT_PROVINCE,
     });
   },
 
@@ -198,7 +200,7 @@ Page({
 
   buildPayload() {
     return {
-      province: "吉林省",
+      province: DEFAULT_PROVINCE,
       score: (this.data.score || "").trim(),
       rank: normalizeRankValue(this.data.rank),
       subject_combination: (this.data.subjectCombination || "").trim(),
