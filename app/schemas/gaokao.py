@@ -74,6 +74,8 @@ class GaokaoRecommendation(BaseModel):
     data_year: int
     min_score: int
     min_rank: int | None = None
+    plan_count: int | None = None
+    year_span: str | None = None
     source_name: str | None = None
 
 

@@ -4,6 +4,7 @@ import json
 import math
 import re
 from collections import defaultdict
+from dataclasses import dataclass
 from functools import lru_cache
 from pathlib import Path
 from typing import Any
@@ -25,6 +26,8 @@ YEAR = 2025
 PROVINCE = "吉林省"
 ROOT_DIR = Path(__file__).resolve().parents[2]
 DIRECTION_POOL_PATH = ROOT_DIR / "data" / "gaokao" / "processed" / "jilin_2025_direction_pool.json"
+LIBRARY_MAJOR_BASELINES_PATH = ROOT_DIR / "data" / "gaokao" / "normalized" / "jilin_library" / "jilin_major_baselines_2022_2025.json"
+LIBRARY_ENROLLMENT_PLANS_PATH = ROOT_DIR / "data" / "gaokao" / "normalized" / "jilin_library" / "jilin_enrollment_plans_2022_2025.json"
 
 TRACK_LABELS = {
     "physics": "物理类",
@@ -98,6 +101,42 @@ GAOKAO_REPORT_PROMPT = """
 规则引擎结论：
 {rule_payload}
 """.strip()
+
+# Override early legacy constants with stable Unicode-safe values.
+PROVINCE = "\u5409\u6797\u7701"
+TRACK_LABELS = {
+    "physics": "\u7269\u7406\u7c7b",
+    "history": "\u5386\u53f2\u7c7b",
+}
+BUCKET_LABELS = {
+    "chong": "\u51b2",
+    "wen": "\u7a33",
+    "bao": "\u4fdd",
+}
+EXTENDED_GROUP_PRIORITY = {
+    "\u6570\u636e\u951a\u5b9a\u8865\u5f3a\u6c60": 0,
+    "\u65b9\u5411\u6269\u5c55\u5173\u6ce8\u6c60": 1,
+    "\u4e0a\u9650\u53c2\u8003\u6c60": 2,
+}
+DIRECTION_ALIAS_MAP = {
+    "electronic_info": [
+        "\u7535\u5b50\u4fe1\u606f",
+        "\u7535\u5b50",
+        "\u901a\u4fe1",
+        "\u81ea\u52a8\u5316",
+        "\u7535\u6c14",
+        "\u7269\u8054\u7f51",
+        "\u8ba1\u7b97\u673a",
+        "\u8f6f\u4ef6",
+        "\u5927\u6570\u636e",
+        "\u6570\u636e\u79d1\u5b66",
+        "\u4fe1\u606f\u7ba1\u7406",
+        "\u4eba\u5de5\u667a\u80fd",
+        "\u82af\u7247",
+        "\u5fae\u7535\u5b50",
+        "\u6570\u667a",
+    ]
+}
 
 GAOKAO_GEMINI_ADVISOR_PROMPT = """
 你是一名中国高考志愿顾问。系统已经基于吉林省公开数据和本地规则，完成了分数定位、位次换算、冲稳保分层、学校池筛选和基础策略判断。
@@ -184,6 +223,46 @@ GAOKAO_GEMINI_NOTES_PROMPT = """
 推荐项：
 {recommendation_payload}
 """.strip()
+
+
+@dataclass(frozen=True)
+class LibraryBaseline:
+    data_year: int
+    province: str
+    track: str
+    school: str
+    major: str
+    city: str
+    school_level: str | None
+    batch: str | None
+    min_score: int
+    min_rank: int | None
+    major_tags: str | None = None
+    notes: str | None = None
+    source_name: str | None = None
+    source_url: str | None = None
+    plan_count: int | None = None
+    year_span: str | None = None
+
+
+@lru_cache(maxsize=1)
+def load_jilin_library_major_baselines() -> list[dict[str, Any]]:
+    if not LIBRARY_MAJOR_BASELINES_PATH.exists():
+        return []
+    try:
+        return json.loads(LIBRARY_MAJOR_BASELINES_PATH.read_text(encoding="utf-8"))
+    except Exception:
+        return []
+
+
+@lru_cache(maxsize=1)
+def load_jilin_library_plans() -> list[dict[str, Any]]:
+    if not LIBRARY_ENROLLMENT_PLANS_PATH.exists():
+        return []
+    try:
+        return json.loads(LIBRARY_ENROLLMENT_PLANS_PATH.read_text(encoding="utf-8"))
+    except Exception:
+        return []
 
 
 @lru_cache(maxsize=1)
@@ -1076,7 +1155,7 @@ class GaokaoService:
         )
 
     def _get_baselines(self, track: str) -> list[GaokaoAdmissionBaseline]:
-        return list(
+        db_rows = list(
             self.db.scalars(
                 select(GaokaoAdmissionBaseline).where(
                     GaokaoAdmissionBaseline.data_year == YEAR,
@@ -1085,6 +1164,130 @@ class GaokaoService:
                 )
             )
         )
+        library_rows = self._get_library_baselines(track)
+        if library_rows:
+            merged = self._merge_baselines(db_rows, library_rows)
+            return merged
+        return db_rows
+
+    def _get_library_baselines(self, track: str) -> list[LibraryBaseline]:
+        baseline_rows = [
+            row
+            for row in load_jilin_library_major_baselines()
+            if row.get("province") == PROVINCE and row.get("track") == track
+        ]
+        if not baseline_rows:
+            return []
+
+        plan_rows = [
+            row
+            for row in load_jilin_library_plans()
+            if row.get("province") == PROVINCE and row.get("track") == track
+        ]
+        plan_index: dict[tuple[int | None, str, str], dict[str, Any]] = {}
+        school_city_index: dict[str, str] = {}
+        for row in plan_rows:
+            key = (row.get("data_year"), row.get("school") or "", row.get("major") or "")
+            plan_index[key] = row
+            school = row.get("school") or ""
+            city = row.get("city") or ""
+            if school and city and school not in school_city_index:
+                school_city_index[school] = city
+
+        grouped: dict[tuple[str, str], list[dict[str, Any]]] = defaultdict(list)
+        for row in baseline_rows:
+            school = (row.get("school") or "").strip()
+            major = (row.get("major") or "").strip()
+            if not school:
+                continue
+            grouped[(school, major)].append(row)
+
+        results: list[LibraryBaseline] = []
+        for (school, major), items in grouped.items():
+            items = sorted(items, key=lambda item: item.get("data_year") or 0, reverse=True)
+            latest = items[0]
+            rank_source = next((item for item in items if item.get("min_rank") is not None), latest)
+            plan_match = plan_index.get((latest.get("data_year"), school, major)) or plan_index.get((rank_source.get("data_year"), school, major))
+            years = sorted({item.get("data_year") for item in items if item.get("data_year")}, reverse=True)
+            city = (
+                (plan_match or {}).get("city")
+                or latest.get("city")
+                or school_city_index.get(school, "")
+            )
+            school_level = (
+                (plan_match or {}).get("school_level")
+                or latest.get("school_level")
+                or None
+            )
+            notes = f"吉林资料库近{len(years)}年专业线聚合"
+            if (plan_match or {}).get("plan_count"):
+                notes += f"，最新计划 {plan_match.get('plan_count')} 人"
+            results.append(
+                LibraryBaseline(
+                    data_year=int(latest.get("data_year") or YEAR),
+                    province=PROVINCE,
+                    track=track,
+                    school=school,
+                    major=major or "普通类",
+                    city=city or "",
+                    school_level=school_level,
+                    batch=latest.get("batch") or None,
+                    min_score=int(rank_source.get("min_score") or latest.get("min_score") or 0),
+                    min_rank=rank_source.get("min_rank"),
+                    major_tags=None,
+                    notes=notes,
+                    source_name="吉林资料库(2022-2025)",
+                    source_url=None,
+                    plan_count=(plan_match or {}).get("plan_count"),
+                    year_span="/".join(str(year) for year in years[:4]) if years else None,
+                )
+            )
+        return results
+
+    def _merge_baselines(
+        self,
+        db_rows: list[GaokaoAdmissionBaseline],
+        library_rows: list[LibraryBaseline],
+    ) -> list[GaokaoAdmissionBaseline | LibraryBaseline]:
+        merged: list[GaokaoAdmissionBaseline | LibraryBaseline] = []
+        seen: set[tuple[str, str]] = set()
+        db_index = {(row.school, row.major): row for row in db_rows}
+
+        for row in library_rows:
+            key = (row.school, row.major)
+            if key in seen:
+                continue
+            db_row = db_index.get(key)
+            if db_row and (not row.city or not row.school_level):
+                row = LibraryBaseline(
+                    data_year=row.data_year,
+                    province=row.province,
+                    track=row.track,
+                    school=row.school,
+                    major=row.major,
+                    city=row.city or db_row.city or "",
+                    school_level=row.school_level or db_row.school_level,
+                    batch=row.batch or db_row.batch,
+                    min_score=row.min_score,
+                    min_rank=row.min_rank,
+                    major_tags=row.major_tags or db_row.major_tags,
+                    notes=row.notes or db_row.notes,
+                    source_name=row.source_name,
+                    source_url=row.source_url or db_row.source_url,
+                    plan_count=row.plan_count,
+                    year_span=row.year_span,
+                )
+            merged.append(row)
+            seen.add(key)
+
+        for row in db_rows:
+            key = (row.school, row.major)
+            if key in seen:
+                continue
+            merged.append(row)
+            seen.add(key)
+
+        return merged
 
     def _build_recommendations(
         self,
@@ -1122,6 +1325,8 @@ class GaokaoService:
                 "data_year": baseline.data_year,
                 "min_score": baseline.min_score,
                 "min_rank": baseline.min_rank,
+                "plan_count": getattr(baseline, "plan_count", None),
+                "year_span": getattr(baseline, "year_span", None),
                 "source_name": baseline.source_name,
                 "_rank_gap": rank_gap,
                 "_score_gap": score_gap,
@@ -1212,6 +1417,8 @@ class GaokaoService:
                     "data_year": item.data_year,
                     "min_score": item.min_score,
                     "min_rank": item.min_rank,
+                    "plan_count": getattr(item, "plan_count", None),
+                    "year_span": getattr(item, "year_span", None),
                     "source_name": item.source_name,
                 }
             )
