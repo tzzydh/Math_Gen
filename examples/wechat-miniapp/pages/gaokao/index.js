@@ -6,17 +6,29 @@ const ADVISOR_MODE_OPTIONS = [
 ];
 
 const ADVISOR_PROVIDER_OPTIONS = [
+  { label: "Gemini", value: "gemini" },
   { label: "GLM / 智谱兼容接口", value: "glm" },
   { label: "OpenAI", value: "openai" },
 ];
 
-const ADVISOR_MODEL_OPTIONS = [
-  { label: "GLM-4.5V", value: "GLM-4.5V" },
-  { label: "系统默认", value: "" },
-  { label: "GLM-4.5-Air", value: "GLM-4.5-Air" },
-  { label: "GLM-4.5", value: "GLM-4.5" },
-  { label: "gpt-4o-mini", value: "gpt-4o-mini" },
-];
+const ADVISOR_MODEL_OPTIONS_BY_PROVIDER = {
+  gemini: [
+    { label: "系统默认", value: "" },
+    { label: "gemini-2.5-flash", value: "gemini-2.5-flash" },
+    { label: "gemini-2.5-pro", value: "gemini-2.5-pro" },
+  ],
+  glm: [
+    { label: "系统默认", value: "" },
+    { label: "GLM-4.5V", value: "GLM-4.5V" },
+    { label: "GLM-4.5-Air", value: "GLM-4.5-Air" },
+    { label: "GLM-4.5", value: "GLM-4.5" },
+  ],
+  openai: [
+    { label: "系统默认", value: "" },
+    { label: "gpt-4o-mini", value: "gpt-4o-mini" },
+    { label: "gpt-4.1-mini", value: "gpt-4.1-mini" },
+  ],
+};
 
 const STEP_OPTIONS = [
   { key: "basic", label: "基础建档", caption: "分数 / 位次 / 选科" },
@@ -54,11 +66,11 @@ Page({
     familyBudget: "",
     notes: "",
     advisorMode: "hybrid",
-    advisorProvider: "glm",
+    advisorProvider: "gemini",
     advisorModel: "",
     advisorModeOptions: ADVISOR_MODE_OPTIONS,
     advisorProviderOptions: ADVISOR_PROVIDER_OPTIONS,
-    advisorModelOptions: ADVISOR_MODEL_OPTIONS,
+    advisorModelOptions: ADVISOR_MODEL_OPTIONS_BY_PROVIDER.gemini,
     consultStatus: "",
     consultError: "",
     consultation: null,
@@ -150,9 +162,11 @@ Page({
   },
 
   handleAdvisorProviderTap(event) {
+    const provider = event.currentTarget.dataset.value;
     this.setData({
-      advisorProvider: event.currentTarget.dataset.value,
+      advisorProvider: provider,
       advisorModel: "",
+      advisorModelOptions: ADVISOR_MODEL_OPTIONS_BY_PROVIDER[provider] || ADVISOR_MODEL_OPTIONS_BY_PROVIDER.gemini,
     });
   },
 

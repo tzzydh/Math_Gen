@@ -33,6 +33,7 @@ function getErrorMessage(error, fallback) {
 }
 
 function getAdvisorProviderLabel(provider) {
+  if (provider === "gemini") return "Gemini";
   if (provider === "openai") return "OpenAI";
   if (provider === "glm") return "GLM / 智谱兼容接口";
   return "系统默认";

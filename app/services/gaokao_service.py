@@ -8,6 +8,7 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Any
 
+import httpx
 from openai import OpenAI
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -96,6 +97,92 @@ GAOKAO_REPORT_PROMPT = """
 
 规则引擎结论：
 {rule_payload}
+""".strip()
+
+GAOKAO_GEMINI_ADVISOR_PROMPT = """
+你是一名中国高考志愿顾问。系统已经基于吉林省公开数据和本地规则，完成了分数定位、位次换算、冲稳保分层、学校池筛选和基础策略判断。
+
+你的任务不是重算数据，而是补上“顾问味道”和“推荐院校的细点评”。
+请务必精炼，整份输出控制在较短篇幅，避免长段空话。
+
+请严格按下面格式输出纯文本，不要输出 markdown，不要输出 JSON，不要输出额外说明：
+
+SUMMARY:
+一句 60-100 字总评
+
+ADVISOR:
+- 结论1
+- 结论2
+- 结论3
+
+SCHOOL_LOGIC:
+- 逻辑1
+- 逻辑2
+
+MAJOR:
+- 提醒1
+- 提醒2
+
+DEEP:
+- 深度判断1
+- 深度判断2
+
+NOTES:
+学校名|专业名|推荐理由|专业提醒
+学校名|专业名|推荐理由|专业提醒
+
+要求：
+1. 不要改动分数、位次、控制线、冲稳保结论，也不要重新发明学校。
+2. NOTES 只允许引用系统已经给出的前 4 个学校和专业；拿不准就留空。
+3. recommendation 的推荐理由和专业提醒各控制在 20-35 字。
+4. strategy、risk_notes、execution_checklist 由本地规则负责，你不要生成。
+5. 语气要像资深志愿顾问，明确、现实、有判断，不要空泛鸡汤。
+6. 结合用户的专业偏好、城市偏好、职业倾向、预算和补充说明做个性化判断。
+
+用户输入：
+{user_payload}
+
+规则引擎结果：
+{rule_payload}
+""".strip()
+
+GAOKAO_GEMINI_SUMMARY_PROMPT = """
+你是一名中国高考志愿顾问。请基于下面的用户信息和规则结果，只输出 4 行纯文本，不要输出其他内容：
+
+SUMMARY: 一句 50-80 字总评
+TAKEAWAY: 一句 20-40 字关键判断
+TAKEAWAY: 一句 20-40 字关键判断
+DEEP: 一句 20-40 字更深的提醒
+
+要求：
+1. 现实、直接、像真人顾问，不要鸡汤。
+2. 不要改动分数、位次、院校和规则结论。
+3. 只做顾问分析，不要重写整份报告。
+
+用户输入：
+{user_payload}
+
+规则结果：
+{rule_payload}
+""".strip()
+
+GAOKAO_GEMINI_NOTES_PROMPT = """
+你是一名中国高考志愿顾问。请只针对下面给出的推荐项，补充更像真人顾问的一句推荐理由和一句专业提醒。
+
+请严格按下面格式输出纯文本，每行一条，不要输出其他内容：
+学校名|专业名|推荐理由|专业提醒
+
+要求：
+1. 只允许使用输入里已经出现的学校和专业，不能编造。
+2. 最多输出 4 行。
+3. 每条推荐理由和专业提醒都控制在 18-32 字。
+4. 如果拿不准，可以少输出几行，但不要输出解释。
+
+用户输入：
+{user_payload}
+
+推荐项：
+{recommendation_payload}
 """.strip()
 
 
@@ -247,6 +334,10 @@ class GaokaoService:
                 strategy = llm_payload.get("strategy") or strategy
                 risk_notes = llm_payload.get("risk_notes") or risk_notes
                 execution_checklist = llm_payload.get("execution_checklist") or execution_checklist
+                recommendations = self._apply_recommendation_notes(
+                    recommendations,
+                    llm_payload.get("recommendation_notes"),
+                )
                 llm_enhanced = True
                 advisor_engine_note = (
                     f"本次先由吉林数据规则引擎做硬判断，再使用 {self._provider_label(advisor_provider)} "
@@ -385,9 +476,9 @@ class GaokaoService:
         return normalized
 
     def _resolve_advisor_provider(self, value: str | None) -> str:
-        provider = (value or settings.gaokao_default_provider or "glm").strip().lower()
-        if provider not in {"glm", "openai"}:
-            return "glm"
+        provider = (value or settings.gaokao_default_provider or "gemini").strip().lower()
+        if provider not in {"glm", "openai", "gemini"}:
+            return "gemini"
         return provider
 
     def _resolve_advisor_model(self, provider: str, model_value: str | None) -> str:
@@ -401,6 +492,14 @@ class GaokaoService:
                 or "gpt-4o-mini"
             ).strip()
             return default_model or "gpt-4o-mini"
+        if provider == "gemini":
+            default_model = (
+                settings.gaokao_gemini_default_model
+                or settings.gemini_model_name
+                or settings.gaokao_default_model
+                or "gemini-2.5-flash"
+            ).strip()
+            return default_model or "gemini-2.5-flash"
         default_model = (
             settings.gaokao_glm_default_model
             or settings.gaokao_default_model
@@ -410,12 +509,15 @@ class GaokaoService:
 
     def _provider_label(self, provider: str | None) -> str:
         labels = {
+            "gemini": "Gemini",
             "glm": "GLM / 智谱兼容接口",
             "openai": "OpenAI",
         }
         return labels.get(provider or "", provider or "默认供应商")
 
     def _build_advisor_client(self, provider: str) -> OpenAI:
+        if provider == "gemini":
+            raise ValueError("Gemini provider uses a dedicated client path")
         if provider == "openai":
             api_key = settings.gaokao_openai_api_key.strip()
             base_url = (settings.gaokao_openai_base_url or "https://api.openai.com/v1").strip()
@@ -428,6 +530,165 @@ class GaokaoService:
         if not base_url:
             raise ValueError(f"{self._provider_label(provider)} 未配置可用的 Base URL")
         return OpenAI(api_key=api_key, base_url=base_url)
+
+    def _call_gemini_text_json(self, model: str, prompt: str) -> dict[str, Any]:
+        api_key = (settings.gaokao_gemini_api_key or settings.gemini_api_key).strip()
+        if not api_key:
+            raise ValueError("Gemini 未配置可用的 API Key")
+
+        url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"
+        payload = {
+            "contents": [
+                {
+                    "parts": [
+                        {
+                            "text": prompt,
+                        }
+                    ]
+                }
+            ],
+            "generationConfig": {
+                "temperature": 0.5,
+                "maxOutputTokens": 900,
+            },
+        }
+        with httpx.Client(timeout=settings.gaokao_llm_timeout_seconds) as client:
+            response = client.post(
+                url,
+                params={"key": api_key},
+                json=payload,
+            )
+            response.raise_for_status()
+            response_json = response.json()
+
+        candidates = response_json.get("candidates") or []
+        first_candidate = candidates[0] if candidates else {}
+        content = first_candidate.get("content") or {}
+        parts = content.get("parts") or []
+        text = ""
+        for part in parts:
+            if isinstance(part, dict) and part.get("text"):
+                text += str(part["text"])
+        if not text.strip():
+            raise ValueError("Gemini 未返回可解析的文本")
+
+        try:
+            return self._parse_json_payload(text)
+        except Exception:
+            return self._parse_gemini_section_payload(text)
+
+    def _call_gemini_text(self, model: str, prompt: str, max_output_tokens: int) -> str:
+        api_key = (settings.gaokao_gemini_api_key or settings.gemini_api_key).strip()
+        if not api_key:
+            raise ValueError("Gemini 未配置可用的 API Key")
+
+        url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"
+        payload = {
+            "contents": [{"parts": [{"text": prompt}]}],
+            "generationConfig": {
+                "temperature": 0.4,
+                "maxOutputTokens": max_output_tokens,
+            },
+        }
+        with httpx.Client(timeout=settings.gaokao_llm_timeout_seconds) as client:
+            response = client.post(url, params={"key": api_key}, json=payload)
+            response.raise_for_status()
+            response_json = response.json()
+
+        candidates = response_json.get("candidates") or []
+        first_candidate = candidates[0] if candidates else {}
+        content = first_candidate.get("content") or {}
+        parts = content.get("parts") or []
+        text = ""
+        for part in parts:
+            if isinstance(part, dict) and part.get("text"):
+                text += str(part["text"])
+        if not text.strip():
+            raise ValueError("Gemini 未返回可解析的文本")
+        return text.strip()
+
+    def _apply_recommendation_notes(
+        self,
+        recommendations: list[dict[str, Any]],
+        recommendation_notes: list[dict[str, Any]] | None,
+    ) -> list[dict[str, Any]]:
+        if not recommendation_notes:
+            return recommendations
+
+        note_map: dict[tuple[str, str], dict[str, Any]] = {}
+        for item in recommendation_notes:
+            if not isinstance(item, dict):
+                continue
+            school = str(item.get("school", "")).strip()
+            major = str(item.get("major", "")).strip()
+            if not school or not major:
+                continue
+            note_map[(school, major)] = item
+
+        updated: list[dict[str, Any]] = []
+        for rec in recommendations:
+            key = (str(rec.get("school", "")).strip(), str(rec.get("major", "")).strip())
+            note = note_map.get(key)
+            if not note:
+                updated.append(rec)
+                continue
+            merged = dict(rec)
+            reason = str(note.get("reason", "")).strip()
+            major_comment = str(note.get("major_comment", "")).strip()
+            if reason:
+                merged["reason"] = reason
+            if major_comment:
+                merged["major_comment"] = major_comment
+            updated.append(merged)
+        return updated
+
+    def _parse_gemini_summary_lines(self, raw_text: str) -> dict[str, Any]:
+        summary = ""
+        takeaways: list[str] = []
+        deep_analysis: list[str] = []
+        for raw_line in raw_text.splitlines():
+            line = raw_line.strip()
+            if not line:
+                continue
+            if line.startswith("SUMMARY:"):
+                summary = line.split(":", 1)[1].strip()
+            elif line.startswith("TAKEAWAY:"):
+                text = line.split(":", 1)[1].strip()
+                if text:
+                    takeaways.append(text)
+            elif line.startswith("DEEP:"):
+                text = line.split(":", 1)[1].strip()
+                if text:
+                    deep_analysis.append(text)
+        if not summary:
+            raise ValueError("Gemini 未返回可解析的顾问总结")
+        return {
+            "summary": summary,
+            "advisor_takeaways": takeaways,
+            "deep_analysis": deep_analysis,
+        }
+
+    def _parse_gemini_recommendation_lines(self, raw_text: str) -> list[dict[str, str]]:
+        notes: list[dict[str, str]] = []
+        for raw_line in raw_text.splitlines():
+            line = raw_line.strip()
+            if not line or "|" not in line:
+                continue
+            parts = [part.strip() for part in line.split("|")]
+            if len(parts) != 4:
+                continue
+            school, major, reason, major_comment = parts
+            if not school or not major:
+                continue
+            notes.append(
+                {
+                    "school": school,
+                    "major": major,
+                    "reason": reason,
+                    "major_comment": major_comment,
+                }
+            )
+        return notes
 
     def _enhance_report_with_llm(
         self,
@@ -453,18 +714,56 @@ class GaokaoService:
             "family_budget": payload.family_budget,
             "notes": payload.notes,
         }
-        prompt = GAOKAO_REPORT_PROMPT.format(
+        if advisor_provider == "gemini":
+            compact_rule_payload = self._build_gemini_rule_payload(rule_payload)
+            prompt = GAOKAO_GEMINI_ADVISOR_PROMPT.format(
+                user_payload=self._to_json_text(user_payload),
+                rule_payload=self._to_json_text(compact_rule_payload),
+            )
+            last_error: Exception | None = None
+            for _ in range(2):
+                try:
+                    payload_json = self._call_gemini_text_json(advisor_model, prompt)
+                    return {
+                        "summary": str(payload_json.get("summary", "")).strip(),
+                        "advisor_takeaways": self._normalize_text_list(payload_json.get("advisor_takeaways")),
+                        "school_choice_logic": self._normalize_text_list(payload_json.get("school_choice_logic")),
+                        "major_observations": self._normalize_text_list(payload_json.get("major_observations")),
+                        "deep_analysis": self._normalize_text_list(payload_json.get("deep_analysis")),
+                        "strategy": [],
+                        "risk_notes": [],
+                        "execution_checklist": [],
+                        "recommendation_notes": payload_json.get("recommendation_notes"),
+                    }, None
+                except Exception as exc:
+                    last_error = exc
+            return None, self._summarize_llm_error(last_error or ValueError("Gemini 调用失败"), advisor_provider, advisor_model)
+
+        prompt_rule_payload = (
+            self._build_gemini_rule_payload(rule_payload)
+            if advisor_provider == "gemini"
+            else rule_payload
+        )
+        prompt_template = (
+            GAOKAO_GEMINI_ADVISOR_PROMPT
+            if advisor_provider == "gemini"
+            else GAOKAO_REPORT_PROMPT
+        )
+        prompt = prompt_template.format(
             user_payload=self._to_json_text(user_payload),
-            rule_payload=self._to_json_text(rule_payload),
+            rule_payload=self._to_json_text(prompt_rule_payload),
         )
         try:
-            raw_output = call_openai_text_json(
-                client=self._build_advisor_client(advisor_provider),
-                model=advisor_model,
-                prompt=prompt,
-                timeout=max(settings.ocr_timeout_seconds, 90),
-            )
-            payload_json = self._parse_json_payload(raw_output)
+            if advisor_provider == "gemini":
+                payload_json = self._call_gemini_text_json(advisor_model, prompt)
+            else:
+                raw_output = call_openai_text_json(
+                    client=self._build_advisor_client(advisor_provider),
+                    model=advisor_model,
+                    prompt=prompt,
+                    timeout=settings.gaokao_llm_timeout_seconds,
+                )
+                payload_json = self._parse_json_payload(raw_output)
         except Exception as exc:
             return None, self._summarize_llm_error(exc, advisor_provider, advisor_model)
 
@@ -477,13 +776,47 @@ class GaokaoService:
             "strategy": self._normalize_text_list(payload_json.get("strategy")),
             "risk_notes": self._normalize_text_list(payload_json.get("risk_notes")),
             "execution_checklist": self._normalize_text_list(payload_json.get("execution_checklist")),
+            "recommendation_notes": payload_json.get("recommendation_notes"),
         }, None
+
+    def _build_gemini_rule_payload(self, rule_payload: dict[str, Any]) -> dict[str, Any]:
+        recommendations = []
+        for item in rule_payload.get("recommendations", [])[:4]:
+            if not isinstance(item, dict):
+                continue
+            recommendations.append(
+                {
+                    "school": item.get("school"),
+                    "major": item.get("major"),
+                    "city": item.get("city"),
+                    "bucket": item.get("bucket"),
+                    "school_level": item.get("school_level"),
+                    "fit_score": item.get("fit_score"),
+                    "decision_tags": item.get("decision_tags", []),
+                    "min_score": item.get("min_score"),
+                    "min_rank": item.get("min_rank"),
+                }
+            )
+
+        return {
+            "summary": rule_payload.get("summary"),
+            "advisor_takeaways": rule_payload.get("advisor_takeaways", [])[:4],
+            "school_choice_logic": rule_payload.get("school_choice_logic", [])[:4],
+            "major_observations": rule_payload.get("major_observations", [])[:4],
+            "signature_advice": rule_payload.get("signature_advice", [])[:4],
+            "major_breakdown": rule_payload.get("major_breakdown", [])[:3],
+            "direction_cards": rule_payload.get("direction_cards", [])[:3],
+            "control_lines": rule_payload.get("control_lines", []),
+            "recommendations": recommendations,
+        }
 
     def _summarize_llm_error(self, exc: Exception, advisor_provider: str, advisor_model: str) -> str:
         message = str(exc).strip() or exc.__class__.__name__
         lower_message = message.lower()
         if advisor_provider == "openai":
             base_url = (settings.gaokao_openai_base_url or "https://api.openai.com/v1").strip()
+        elif advisor_provider == "gemini":
+            base_url = "https://generativelanguage.googleapis.com"
         else:
             base_url = (settings.gaokao_glm_base_url or settings.openai_base_url).strip()
         provider_label = self._provider_label(advisor_provider)
@@ -520,6 +853,66 @@ class GaokaoService:
         if match:
             sanitized = match.group(0)
         return json.loads(sanitized)
+
+    def _parse_gemini_section_payload(self, raw_text: str) -> dict[str, Any]:
+        sections: dict[str, list[str]] = {}
+        current_section = ""
+        for raw_line in raw_text.splitlines():
+            line = raw_line.strip()
+            if not line:
+                continue
+            if line.endswith(":") and line[:-1] in {
+                "SUMMARY",
+                "ADVISOR",
+                "SCHOOL_LOGIC",
+                "MAJOR",
+                "DEEP",
+                "NOTES",
+            }:
+                current_section = line[:-1]
+                sections.setdefault(current_section, [])
+                continue
+            if current_section:
+                sections.setdefault(current_section, []).append(line)
+
+        recommendation_notes: list[dict[str, str]] = []
+        for line in sections.get("NOTES", []):
+            parts = [part.strip() for part in line.split("|")]
+            if len(parts) != 4:
+                continue
+            school, major, reason, major_comment = parts
+            if not school or not major:
+                continue
+            recommendation_notes.append(
+                {
+                    "school": school,
+                    "major": major,
+                    "reason": reason,
+                    "major_comment": major_comment,
+                }
+            )
+
+        def normalize_bullets(items: list[str]) -> list[str]:
+            normalized: list[str] = []
+            for item in items:
+                text = re.sub(r"^[-•]\s*", "", item).strip()
+                if text:
+                    normalized.append(text)
+            return normalized
+
+        summary_lines = sections.get("SUMMARY", [])
+        summary = " ".join(summary_lines).strip()
+        if not summary:
+            raise ValueError("Gemini 未返回可解析的顾问内容")
+
+        return {
+            "summary": summary,
+            "advisor_takeaways": normalize_bullets(sections.get("ADVISOR", [])),
+            "school_choice_logic": normalize_bullets(sections.get("SCHOOL_LOGIC", [])),
+            "major_observations": normalize_bullets(sections.get("MAJOR", [])),
+            "deep_analysis": normalize_bullets(sections.get("DEEP", [])),
+            "recommendation_notes": recommendation_notes,
+        }
 
     def _to_json_text(self, payload: dict[str, Any]) -> str:
         return json.dumps(payload, ensure_ascii=False, indent=2)
