@@ -97,13 +97,27 @@ class VisionOcrService:
     def _extract_json_from_image_bytes(self, image_bytes: bytes, mime_type: str, prompt: str) -> dict[str, Any]:
         self.ensure_configured()
         image_data_url = self._build_data_url(image_bytes=image_bytes, mime_type=mime_type)
-        raw_output = call_openai_vision_json(
-            client=get_openai_client(),
-            model=settings.openai_model_name,
-            prompt=prompt,
-            image_data_url=image_data_url,
-            timeout=settings.ocr_timeout_seconds,
-        )
+        timeout = max(settings.ocr_timeout_seconds, 90)
+        attempts = max(settings.ocr_retry_count, 1)
+        last_error: Exception | None = None
+        for _ in range(attempts):
+            try:
+                raw_output = call_openai_vision_json(
+                    client=get_openai_client(),
+                    model=settings.openai_model_name,
+                    prompt=prompt,
+                    image_data_url=image_data_url,
+                    timeout=timeout,
+                )
+                break
+            except Exception as exc:
+                last_error = exc
+                message = str(exc).lower()
+                if "timed out" not in message and "timeout" not in message:
+                    raise
+        else:
+            raise RuntimeError("OCR 识别超时，请稍后重试或手动补充作文原文。") from last_error
+
         payload = self._parse_json_payload(raw_output)
         payload["raw_output"] = raw_output
         return payload

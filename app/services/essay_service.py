@@ -217,12 +217,26 @@ class EssayService:
             title=title or "(untitled)",
             text=text,
         )
-        raw_output = call_openai_text_json(
-            client=get_openai_client(),
-            model=settings.openai_model_name,
-            prompt=prompt,
-            timeout=max(settings.ocr_timeout_seconds, 90),
-        )
+        timeout = max(settings.essay_review_timeout_seconds, settings.ocr_timeout_seconds, 120)
+        attempts = max(settings.essay_retry_count, 1)
+        last_error: Exception | None = None
+        for _ in range(attempts):
+            try:
+                raw_output = call_openai_text_json(
+                    client=get_openai_client(),
+                    model=settings.openai_model_name,
+                    prompt=prompt,
+                    timeout=timeout,
+                )
+                break
+            except Exception as exc:
+                last_error = exc
+                message = str(exc).lower()
+                if "timed out" not in message and "timeout" not in message:
+                    raise
+        else:
+            raise RuntimeError("作文批改请求超时，请稍后重试或补充作文原文。") from last_error
+
         payload = self._parse_json_payload(raw_output)
         return {
             "corrected_title": str(payload.get("corrected_title", "")).strip(),

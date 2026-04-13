@@ -168,12 +168,19 @@ Page({
       }
 
       const savedFile = await new Promise((resolve, reject) => {
-        wx.saveFile({
+        const fs = wx.getFileSystemManager();
+        fs.saveFile({
           tempFilePath: downloadRes.tempFilePath,
+          filePath: `${wx.env.USER_DATA_PATH}/gaokao-plan-${this.data.planId}.pdf`,
           success: resolve,
           fail: reject,
         });
       }).catch(() => ({ savedFilePath: downloadRes.tempFilePath }));
+
+      if (loadingShown) {
+        wx.hideLoading();
+        loadingShown = false;
+      }
 
       await new Promise((resolve, reject) => {
         wx.openDocument({

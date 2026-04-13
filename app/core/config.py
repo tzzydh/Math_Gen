@@ -19,6 +19,9 @@ class Settings(BaseSettings):
     gemini_api_key: str = ""
     gemini_model_name: str = "gemini-2.5-flash"
     ocr_timeout_seconds: int = 45
+    ocr_retry_count: int = 2
+    essay_review_timeout_seconds: int = 120
+    essay_retry_count: int = 2
     gaokao_llm_timeout_seconds: int = 25
     gaokao_enable_llm: bool = True
     gaokao_default_provider: str = "gemini"

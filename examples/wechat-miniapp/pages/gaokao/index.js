@@ -187,6 +187,10 @@ Page({
       (question) => question.required && !String(question.currentValue || "").trim()
     );
     if (unanswered.length > 0) {
+      if (loadingShown) {
+        wx.hideLoading();
+        loadingShown = false;
+      }
       wx.showToast({
         title: `还有 ${unanswered.length} 个必答项未完成`,
         icon: "none",
@@ -300,11 +304,15 @@ Page({
         url: "/gaokao/plan",
         method: "POST",
         token: this.data.token,
-        timeout: 120000,
+        timeout: 180000,
         data: this.buildPayload(),
       });
 
       this.setData({ planningStatus: "completed" });
+      if (loadingShown) {
+        wx.hideLoading();
+        loadingShown = false;
+      }
       wx.navigateTo({
         url: `/pages/gaokao-result/index?planId=${result.plan_id}`,
       });

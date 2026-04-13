@@ -46,6 +46,17 @@ function isUserCancelled(error) {
   return typeof errMsg === "string" && errMsg.includes("cancel");
 }
 
+function showLoading(title) {
+  wx.showLoading({ title, mask: true });
+  return true;
+}
+
+function hideLoadingIfNeeded(flag) {
+  if (flag) {
+    wx.hideLoading();
+  }
+}
+
 Page({
   data: {
     token: "",
@@ -77,8 +88,7 @@ Page({
     this.setData({ uploading: true });
     try {
       const file = await chooseEssayImage();
-      wx.showLoading({ title: "上传中..." });
-      loadingShown = true;
+      loadingShown = showLoading("上传中...");
 
       const presign = await request({
         url: "/uploads/presign",
@@ -111,6 +121,8 @@ Page({
         essayError: "",
       });
 
+      hideLoadingIfNeeded(loadingShown);
+      loadingShown = false;
       wx.showToast({ title: "上传成功", icon: "success" });
     } catch (error) {
       if (isUserCancelled(error)) {
@@ -120,9 +132,7 @@ Page({
       wx.showToast({ title: getErrorMessage(error, "上传失败"), icon: "none" });
     } finally {
       this.setData({ uploading: false });
-      if (loadingShown) {
-        wx.hideLoading();
-      }
+      hideLoadingIfNeeded(loadingShown);
     }
   },
 
@@ -143,8 +153,7 @@ Page({
     });
 
     try {
-      wx.showLoading({ title: "批改中..." });
-      loadingShown = true;
+      loadingShown = showLoading("批改中...");
 
       const payload = {
         asset_id: this.data.essayAssetId,
@@ -162,10 +171,12 @@ Page({
         method: "POST",
         token: this.data.token,
         data: payload,
-        timeout: 180000,
+        timeout: 300000,
       });
 
       this.setData({ essayStatus: "completed" });
+      hideLoadingIfNeeded(loadingShown);
+      loadingShown = false;
       wx.navigateTo({
         url: `/pages/essay-result/index?reviewId=${result.review_id}`,
       });
@@ -179,9 +190,7 @@ Page({
       wx.showToast({ title: message, icon: "none" });
     } finally {
       this.setData({ reviewing: false });
-      if (loadingShown) {
-        wx.hideLoading();
-      }
+      hideLoadingIfNeeded(loadingShown);
     }
   },
 

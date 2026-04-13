@@ -14,6 +14,35 @@ function getErrorMessage(error, fallback) {
   return fallback;
 }
 
+function joinList(items) {
+  return (items || []).join("；");
+}
+
+function showLoading(title) {
+  wx.showLoading({ title, mask: true });
+  return true;
+}
+
+function hideLoadingIfNeeded(flag) {
+  if (flag) {
+    wx.hideLoading();
+  }
+}
+
+function saveTempFile(tempFilePath) {
+  return new Promise((resolve, reject) => {
+    const fs = wx.getFileSystemManager();
+    const fileName = `essay-review-${Date.now()}.pdf`;
+    const targetPath = `${wx.env.USER_DATA_PATH}/${fileName}`;
+    fs.saveFile({
+      tempFilePath,
+      filePath: targetPath,
+      success: resolve,
+      fail: reject,
+    });
+  });
+}
+
 Page({
   data: {
     token: "",
@@ -59,12 +88,12 @@ Page({
         result,
         isEnglish,
         subjectLabel: getSubjectLabel(result.subject),
-        strengthsText: (result.strengths || []).join("；"),
-        issuesText: (result.issues || []).join("；"),
-        suggestionsText: (result.suggestions || []).join("；"),
-        strengthsCnText: (result.strengths_cn || []).join("；"),
-        issuesCnText: (result.issues_cn || []).join("；"),
-        suggestionsCnText: (result.suggestions_cn || []).join("；"),
+        strengthsText: joinList(result.strengths),
+        issuesText: joinList(result.issues),
+        suggestionsText: joinList(result.suggestions),
+        strengthsCnText: joinList(result.strengths_cn),
+        issuesCnText: joinList(result.issues_cn),
+        suggestionsCnText: joinList(result.suggestions_cn),
         loading: false,
       });
     } catch (error) {
@@ -90,8 +119,7 @@ Page({
     this.setData({ downloading: true });
     try {
       console.log("wx.downloadFile ->", downloadUrl);
-      wx.showLoading({ title: "下载 PDF..." });
-      loadingShown = true;
+      loadingShown = showLoading("下载 PDF...");
 
       const downloadRes = await new Promise((resolve, reject) => {
         wx.downloadFile({
@@ -108,13 +136,12 @@ Page({
         throw downloadRes;
       }
 
-      const savedFile = await new Promise((resolve, reject) => {
-        wx.saveFile({
-          tempFilePath: downloadRes.tempFilePath,
-          success: resolve,
-          fail: reject,
-        });
-      }).catch(() => ({ savedFilePath: downloadRes.tempFilePath }));
+      const savedFile = await saveTempFile(downloadRes.tempFilePath).catch(() => ({
+        savedFilePath: downloadRes.tempFilePath,
+      }));
+
+      hideLoadingIfNeeded(loadingShown);
+      loadingShown = false;
 
       await new Promise((resolve, reject) => {
         wx.openDocument({
@@ -132,9 +159,7 @@ Page({
       wx.showToast({ title: getErrorMessage(error, "PDF 下载失败"), icon: "none" });
     } finally {
       this.setData({ downloading: false });
-      if (loadingShown) {
-        wx.hideLoading();
-      }
+      hideLoadingIfNeeded(loadingShown);
     }
   },
 
