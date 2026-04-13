@@ -1,9 +1,23 @@
 {
   "teacher": {
+    "input_major": "师范",
+    "matched_major_profile": "教育学",
     "top3": [
       {
-        "school": "陕西师范大学",
-        "major": "物理学",
+        "school": "北京师范大学",
+        "major": "教育学类",
+        "bucket": "chong",
+        "ranking_score": 99,
+        "ranking_reasons": [
+          "师范培养路径直接贴合",
+          "可作为冲档上限样本",
+          "预算约束下更友好",
+          "位次距离可接受"
+        ]
+      },
+      {
+        "school": "湖南师范大学",
+        "major": "生物科学类",
         "bucket": "chong",
         "ranking_score": 97,
         "ranking_reasons": [
@@ -14,34 +28,22 @@
         ]
       },
       {
-        "school": "东北师范大学",
-        "major": "地理科学",
+        "school": "天津师范大学",
+        "major": "数学与应用数学",
         "bucket": "chong",
-        "ranking_score": 97,
+        "ranking_score": 93,
         "ranking_reasons": [
           "学科师范路径贴合",
           "可作为冲档上限样本",
           "预算约束下更友好",
-          "位次贴近，落点更实"
-        ]
-      },
-      {
-        "school": "陕西师范大学",
-        "major": "生物科学",
-        "bucket": "chong",
-        "ranking_score": 97,
-        "ranking_reasons": [
-          "学科师范路径贴合",
-          "可作为冲档上限样本",
-          "预算约束下更友好",
-          "位次贴近，落点更实"
+          "位次距离可接受"
         ]
       }
-    ],
-    "pdf_has_ranking_basis": true,
-    "pdf_has_major_title": true
+    ]
   },
   "tcm": {
+    "input_major": "中医药",
+    "matched_major_profile": "中医学",
     "top3": [
       {
         "school": "长春中医药大学",
@@ -68,8 +70,8 @@
         ]
       },
       {
-        "school": "天津医科大学",
-        "major": "康复治疗学",
+        "school": "湖南中医药大学",
+        "major": "中医学",
         "bucket": "chong",
         "ranking_score": 95,
         "ranking_reasons": [
@@ -79,38 +81,14 @@
           "位次距离可接受"
         ]
       }
-    ],
-    "pdf_has_ranking_basis": true,
-    "pdf_has_major_title": true
+    ]
   },
   "electronic": {
+    "input_major": "电子信息",
+    "matched_major_profile": "电子信息工程",
     "top3": [
       {
-        "school": "长春工程学院",
-        "major": "电子信息工程",
-        "bucket": "chong",
-        "ranking_score": 99,
-        "ranking_reasons": [
-          "电子信息方向贴合",
-          "城市偏好直接命中",
-          "可作为冲档上限样本",
-          "位次距离可接受"
-        ]
-      },
-      {
-        "school": "长春大学",
-        "major": "智能制造工程",
-        "bucket": "chong",
-        "ranking_score": 98,
-        "ranking_reasons": [
-          "电子信息方向贴合",
-          "城市偏好直接命中",
-          "可作为冲档上限样本",
-          "位次距离可接受"
-        ]
-      },
-      {
-        "school": "吉林建筑大学",
+        "school": "长春理工大学",
         "major": "电气工程及其自动化",
         "bucket": "chong",
         "ranking_score": 98,
@@ -120,9 +98,115 @@
           "可作为冲档上限样本",
           "位次距离可接受"
         ]
+      },
+      {
+        "school": "北方工业大学",
+        "major": "电子信息工程",
+        "bucket": "chong",
+        "ranking_score": 95,
+        "ranking_reasons": [
+          "电子信息方向贴合",
+          "可作为冲档上限样本",
+          "位次距离可接受",
+          "有历史数据锚点"
+        ]
+      },
+      {
+        "school": "兰州大学",
+        "major": "电子信息类",
+        "bucket": "chong",
+        "ranking_score": 95,
+        "ranking_reasons": [
+          "电子信息方向贴合",
+          "可作为冲档上限样本",
+          "位次距离可接受",
+          "有历史数据锚点"
+        ]
       }
-    ],
-    "pdf_has_ranking_basis": true,
-    "pdf_has_major_title": true
+    ]
+  },
+  "law": {
+    "input_major": "法学",
+    "matched_major_profile": "法学",
+    "top3": [
+      {
+        "school": "四川师范大学",
+        "major": "法学",
+        "bucket": "chong",
+        "ranking_score": 83,
+        "ranking_reasons": [
+          "可作为冲档上限样本",
+          "预算约束下更友好",
+          "位次距离可接受",
+          "有历史数据锚点"
+        ]
+      },
+      {
+        "school": "湖南师范大学",
+        "major": "法学",
+        "bucket": "chong",
+        "ranking_score": 83,
+        "ranking_reasons": [
+          "可作为冲档上限样本",
+          "预算约束下更友好",
+          "位次距离可接受",
+          "有历史数据锚点"
+        ]
+      },
+      {
+        "school": "天津师范大学",
+        "major": "法学",
+        "bucket": "chong",
+        "ranking_score": 83,
+        "ranking_reasons": [
+          "可作为冲档上限样本",
+          "预算约束下更友好",
+          "位次距离可接受",
+          "有历史数据锚点"
+        ]
+      }
+    ]
+  },
+  "psychology": {
+    "input_major": "心理学",
+    "matched_major_profile": "心理学",
+    "top3": [
+      {
+        "school": "东北师范大学",
+        "major": "心理学",
+        "bucket": "chong",
+        "ranking_score": 83,
+        "ranking_reasons": [
+          "可作为冲档上限样本",
+          "预算约束下更友好",
+          "位次距离可接受",
+          "有历史数据锚点"
+        ]
+      },
+      {
+        "school": "湖南师范大学",
+        "major": "物理学类",
+        "bucket": "chong",
+        "ranking_score": 82,
+        "ranking_reasons": [
+          "可作为冲档上限样本",
+          "预算约束下更友好",
+          "位次距离可接受",
+          "有历史数据锚点"
+        ]
+      },
+      {
+        "school": "北京师范大学",
+        "major": "物理学",
+        "bucket": "chong",
+        "ranking_score": 82,
+        "ranking_reasons": [
+          "可作为冲档上限样本",
+          "预算约束下更友好",
+          "位次距离可接受",
+          "有历史数据锚点"
+        ]
+      }
+    ]
   }
 }

@@ -423,19 +423,32 @@ class GaokaoService:
         if not baselines:
             raise ValueError("吉林省公开录取基线尚未导入")
 
+        initial_major_profile = build_major_profile(
+            payload.preferred_majors,
+            [],
+            load_jilin_major_profiles(),
+        )
+
         recommendations = self._build_recommendations(
             payload=payload,
             track=track,
             score=score,
             rank=calculated_rank,
             baselines=baselines,
+            major_profile=initial_major_profile,
         )
         if not recommendations:
-            recommendations = self._build_fallback_recommendations(baselines, score, calculated_rank, payload)
+            recommendations = self._build_fallback_recommendations(
+                baselines,
+                score,
+                calculated_rank,
+                payload,
+                initial_major_profile,
+            )
 
         direction_cards = self._build_direction_cards(payload, track, score, calculated_rank, control_lines)
         direction_advice = [card["content"] for card in direction_cards]
-        focused_major_profile = build_major_profile(
+        focused_major_profile = initial_major_profile or build_major_profile(
             payload.preferred_majors,
             recommendations,
             load_jilin_major_profiles(),
@@ -1386,6 +1399,7 @@ class GaokaoService:
         score: int,
         rank: int,
         baselines: list[GaokaoAdmissionBaseline],
+        major_profile: dict[str, Any] | None = None,
     ) -> list[dict[str, Any]]:
         grouped: dict[str, list[dict[str, Any]]] = defaultdict(list)
         ranked_rows: list[dict[str, Any]] = []
@@ -1399,7 +1413,7 @@ class GaokaoService:
             bucket = self._classify_bucket(rank_gap, score_gap)
             if bucket is None:
                 continue
-            match_score, match_reasons, decision_tags = self._score_direction_match(payload, track, baseline)
+            match_score, match_reasons, decision_tags = self._score_direction_match(payload, track, baseline, major_profile)
             fit_score = self._fit_score(bucket, rank_gap, score_gap, match_score)
             ranking_score, ranking_reasons = self._recommendation_order_score(
                 payload,
@@ -1410,6 +1424,7 @@ class GaokaoService:
                 score_gap,
                 fit_score,
                 decision_tags,
+                major_profile,
             )
             row = {
                 "school": baseline.school,
@@ -1493,6 +1508,7 @@ class GaokaoService:
         score: int,
         rank: int,
         payload: GaokaoPlanRequest,
+        major_profile: dict[str, Any] | None = None,
     ) -> list[dict[str, Any]]:
         sorted_rows = sorted(
             [item for item in baselines if item.min_rank is not None],
@@ -1500,7 +1516,7 @@ class GaokaoService:
         )[:8]
         results = []
         for item in sorted_rows:
-            _, match_reasons, decision_tags = self._score_direction_match(payload, item.track, item)
+            _, match_reasons, decision_tags = self._score_direction_match(payload, item.track, item, major_profile)
             rank_gap = self._rank_gap(rank, item.min_rank or rank)
             score_gap = item.min_score - score
             bucket = self._classify_bucket(rank_gap, score_gap)
@@ -1545,6 +1561,7 @@ class GaokaoService:
         payload: GaokaoPlanRequest,
         track: str,
         baseline: GaokaoAdmissionBaseline,
+        major_profile: dict[str, Any] | None = None,
     ) -> tuple[int, list[str], list[str]]:
         score = 0
         reasons: list[str] = []
@@ -1566,11 +1583,23 @@ class GaokaoService:
         career_pref = self._tokenize(payload.career_preferences)
         budget_pref = (payload.family_budget or "").strip()
 
+        profile_keywords = self._major_profile_keywords(major_profile)
         major_hits = [token for token in major_pref if token.lower() in haystack]
         if major_hits:
             score += 20
             reasons.append(f"命中意向专业关键词：{'、'.join(major_hits[:3])}")
             tags.append("专业贴合")
+        elif profile_keywords:
+            profile_hits = [token for token in profile_keywords if token.lower() in haystack]
+            if profile_hits:
+                score += 16
+                reasons.append(f"命中专业画像关联词：{'、'.join(profile_hits[:3])}")
+                tags.append("专业画像贴合")
+            else:
+                direction_score, direction_reasons, direction_tags = self._direction_match_strength(direction_keys, baseline)
+                score += direction_score
+                reasons.extend(direction_reasons[:2])
+                tags.extend(direction_tags)
         else:
             direction_score, direction_reasons, direction_tags = self._direction_match_strength(direction_keys, baseline)
             score += direction_score
@@ -1626,6 +1655,25 @@ class GaokaoService:
         if not raw_text:
             return []
         return [token for token in re.split(r"[、,，/\\\s]+", raw_text) if token]
+
+    def _major_profile_keywords(self, major_profile: dict[str, Any] | None) -> list[str]:
+        if not major_profile:
+            return []
+        raw_values: list[str] = []
+        for field in ("major_name", "major_category", "discipline"):
+            value = str(major_profile.get(field) or "").strip()
+            if value:
+                raw_values.append(value)
+        raw_values.extend(str(item).strip() for item in (major_profile.get("similar_majors") or []) if str(item).strip())
+        raw_values.extend(str(item).strip() for item in (major_profile.get("postgraduate_paths") or []) if str(item).strip())
+        raw_values.extend(str(item).strip() for item in (major_profile.get("top_jobs") or []) if str(item).strip())
+
+        keywords: list[str] = []
+        for text in raw_values:
+            for token in self._tokenize(text):
+                if len(token) >= 2 and token not in keywords:
+                    keywords.append(token)
+        return keywords[:24]
 
     def _fit_score(self, bucket: str, rank_gap: int, score_gap: int, match_score: int) -> int:
         base = {"chong": 73, "wen": 84, "bao": 80}[bucket]
@@ -2260,6 +2308,7 @@ class GaokaoService:
         score_gap: int,
         fit_score: int,
         decision_tags: list[str],
+        major_profile: dict[str, Any] | None = None,
     ) -> tuple[int, list[str]]:
         score = 56
         reasons: list[str] = []
@@ -2307,8 +2356,18 @@ class GaokaoService:
 
         if "专业贴合" in decision_tags:
             score += 6
+        elif "专业画像贴合" in decision_tags:
+            score += 5
         elif "方向贴合" in decision_tags:
             score += 4
+
+        profile_keywords = self._major_profile_keywords(major_profile)
+        if profile_keywords:
+            major_haystack = " ".join([baseline.major, baseline.major_tags or "", baseline.notes or ""])
+            profile_hits = [token for token in profile_keywords if token in major_haystack]
+            if profile_hits:
+                score += 6
+                reasons.append("相似专业/培养路径可承接")
 
         if score_gap > 35 and bucket == "chong":
             score -= 8
