@@ -19,6 +19,7 @@ from app.db.models.gaokao_admission_baseline import GaokaoAdmissionBaseline
 from app.db.models.gaokao_control_line import GaokaoControlLine
 from app.db.models.gaokao_score_rank import GaokaoScoreRank
 from app.schemas.gaokao import GaokaoConsultationRequest, GaokaoPlanRequest
+from app.services.gaokao_gemini import call_gemini_text_json
 from app.services.gaokao_major_profile import build_major_breakdown, build_major_profile
 from core.openai_compat import call_openai_text_json
 
@@ -850,7 +851,7 @@ class GaokaoService:
             last_error: Exception | None = None
             for _ in range(2):
                 try:
-                    payload_json = self._call_gemini_text_json(advisor_model, prompt)
+                    payload_json = call_gemini_text_json(advisor_model, prompt, self._parse_json_payload)
                     return {
                         "summary": str(payload_json.get("summary", "")).strip(),
                         "advisor_takeaways": self._normalize_text_list(payload_json.get("advisor_takeaways")),
@@ -882,7 +883,7 @@ class GaokaoService:
         )
         try:
             if advisor_provider == "gemini":
-                payload_json = self._call_gemini_text_json(advisor_model, prompt)
+                payload_json = call_gemini_text_json(advisor_model, prompt, self._parse_json_payload)
             else:
                 raw_output = call_openai_text_json(
                     client=self._build_advisor_client(advisor_provider),
@@ -1655,6 +1656,7 @@ class GaokaoService:
         control_lines: list[GaokaoControlLine],
     ) -> list[dict[str, str]]:
         line_map = {item.line_type: item.score for item in control_lines}
+        major_text = (payload.preferred_majors or "").strip()
         cards = [
             {
                 "title": "当前定位",
@@ -1665,7 +1667,25 @@ class GaokaoService:
             }
         ]
 
-        if track == "physics":
+        if any(keyword in major_text for keyword in ["师范", "教育", "小学教育", "学前教育"]):
+            cards.append(
+                {
+                    "title": "方向优先级",
+                    "content": (
+                        "如果你更偏师范路线，核心不是只看学校名头，而是先看学校所在城市、师范传统、教师招聘环境、读研深造氛围和是否适合后期考编。"
+                    ),
+                }
+            )
+        elif any(keyword in major_text for keyword in ["中医", "中医药", "中药", "针灸"]):
+            cards.append(
+                {
+                    "title": "方向优先级",
+                    "content": (
+                        "中医药方向先看平台和资源，再看学校层级。附属医院、临床实践、继续深造和执业资格路径，比单纯校名更能决定后续发展。"
+                    ),
+                }
+            )
+        elif track == "physics":
             cards.append(
                 {
                     "title": "方向优先级",
@@ -1764,6 +1784,7 @@ class GaokaoService:
     ) -> list[str]:
         observations: list[str] = []
         preferred_majors = self._tokenize(payload.preferred_majors)
+        major_text = (payload.preferred_majors or "").strip()
 
         if preferred_majors:
             observations.append(
@@ -1774,7 +1795,21 @@ class GaokaoService:
                     f"当前公开分数样本里，与“{'、'.join(preferred_majors[:2])}”高度贴合的院校还不算厚，所以你要把主推荐池和后面的方向扩展池结合着看。"
                 )
 
-        if track == "physics":
+        if any(keyword in major_text for keyword in ["师范", "教育", "小学教育", "学前教育"]):
+            observations.extend(
+                [
+                    "师范不是一个专业，而是一整条路径。你要先分清自己更偏学科师范、教育学类，还是小学教育、学前教育这种培养方向。",
+                    "如果未来看重编制和稳定，就要重点比较学校所在地、当地教师招聘机会、是否有强势师范传统，以及是否适合后期读教育专硕。",
+                ]
+            )
+        elif any(keyword in major_text for keyword in ["中医", "中医药", "中药", "针灸"]):
+            observations.extend(
+                [
+                    "中医药相关专业不能只看名字，要分清中医学、中药学、针灸推拿学和中西医临床医学，它们的课程体系和就业出口差异很大。",
+                    "如果后期准备读研或走执业资格路径，学校附属医院平台、临床资源和继续深造氛围，比单纯校名更重要。",
+                ]
+            )
+        elif track == "physics":
             observations.extend(
                 [
                     "工科和信息类看上去都很像，但课程难度、就业行业、读研价值差异很大，别把“计算机、电子、电气、自动化”当成一个东西。",

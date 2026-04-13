@@ -1,0 +1,32 @@
+[
+  {
+    "case": "teacher",
+    "major_input": "师范",
+    "major_profile_name": "教育学",
+    "llm_enhanced": true,
+    "advisor_engine_note": "本次先由吉林数据规则引擎做硬判断，再使用 Gemini 的 gemini-2.5-flash 做顾问润色与深度分析。",
+    "recommendation_count": 12,
+    "pdf_path": "E:\\001_Math\\reports\\gaokao_smoke_teacher.pdf",
+    "pdf_size": 19150
+  },
+  {
+    "case": "tcm",
+    "major_input": "中医药",
+    "major_profile_name": "中医学",
+    "llm_enhanced": false,
+    "advisor_engine_note": "本次尝试使用 Gemini 的 gemini-2.5-flash 做深度顾问分析，但模型增强未成功，已自动回退到纯规则模式。 原因：Gemini 额度不足或触发限流",
+    "recommendation_count": 12,
+    "pdf_path": "E:\\001_Math\\reports\\gaokao_smoke_tcm.pdf",
+    "pdf_size": 20017
+  },
+  {
+    "case": "ee",
+    "major_input": "电子信息",
+    "major_profile_name": "电子信息工程",
+    "llm_enhanced": true,
+    "advisor_engine_note": "本次先由吉林数据规则引擎做硬判断，再使用 Gemini 的 gemini-2.5-flash 做顾问润色与深度分析。",
+    "recommendation_count": 12,
+    "pdf_path": "E:\\001_Math\\reports\\gaokao_smoke_ee.pdf",
+    "pdf_size": 22859
+  }
+]
