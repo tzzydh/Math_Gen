@@ -102,8 +102,75 @@
     </view>
   </view>
 
+  <view class="card" wx:if="{{result.majorProfile}}">
+    <view class="section-title">专业详细解析</view>
+    <view class="stats-row">
+      <view class="stat-pill">
+        <view class="stat-label">目标专业</view>
+        <view class="stat-value compact">{{result.majorProfile.major_name}}</view>
+      </view>
+      <view class="stat-pill" wx:if="{{result.majorProfile.major_category}}">
+        <view class="stat-label">专业大类</view>
+        <view class="stat-value compact">{{result.majorProfile.major_category}}</view>
+      </view>
+      <view class="stat-pill" wx:if="{{result.majorProfile.duration}}">
+        <view class="stat-label">学制</view>
+        <view class="stat-value compact">{{result.majorProfile.duration}}</view>
+      </view>
+      <view class="stat-pill" wx:if="{{result.majorProfile.degree}}">
+        <view class="stat-label">学位</view>
+        <view class="stat-value compact">{{result.majorProfile.degree}}</view>
+      </view>
+    </view>
+
+    <view class="direction-card" wx:if="{{result.majorProfile.overview || result.majorProfile.training_goal}}">
+      <view class="direction-title">专业介绍</view>
+      <view class="text-block">{{result.majorProfile.overview || result.majorProfile.training_goal}}</view>
+    </view>
+
+    <view class="direction-card">
+      <view class="direction-title">就业与考研</view>
+      <view class="text-block" wx:if="{{result.majorProfile.employment_rate}}">就业率参考：{{result.majorProfile.employment_rate}}</view>
+      <view class="text-block" wx:if="{{result.majorProfile.salary_after_5y}}">五年月薪参考：{{result.majorProfile.salary_after_5y}}</view>
+      <view class="tag-row" wx:if="{{result.majorProfile.postgraduate_paths.length}}">
+        <view class="tag-pill" wx:for="{{result.majorProfile.postgraduate_paths}}" wx:key="index">{{item}}</view>
+      </view>
+    </view>
+
+    <view class="direction-card" wx:if="{{result.majorProfile.top_jobs.length}}">
+      <view class="direction-title">典型岗位</view>
+      <view class="tag-row">
+        <view class="tag-pill" wx:for="{{result.majorProfile.top_jobs}}" wx:key="index">{{item}}</view>
+      </view>
+    </view>
+
+    <view class="direction-card" wx:if="{{result.majorProfile.similar_majors.length}}">
+      <view class="direction-title">相似专业</view>
+      <view class="tag-row">
+        <view class="tag-pill" wx:for="{{result.majorProfile.similar_majors}}" wx:key="index">{{item}}</view>
+      </view>
+    </view>
+
+    <view class="stats-row" wx:if="{{result.majorProfile.strengths.length || result.majorProfile.weaknesses.length}}">
+      <view class="analysis-block positive-block" wx:if="{{result.majorProfile.strengths.length}}">
+        <view class="analysis-title">优势</view>
+        <view wx:for="{{result.majorProfile.strengths}}" wx:key="index" class="mini-list-item">
+          <view class="mini-bullet"></view>
+          <view class="mini-list-text">{{item}}</view>
+        </view>
+      </view>
+      <view class="analysis-block caution-block" wx:if="{{result.majorProfile.weaknesses.length}}">
+        <view class="analysis-title">短板</view>
+        <view wx:for="{{result.majorProfile.weaknesses}}" wx:key="index" class="mini-list-item">
+          <view class="mini-bullet caution-mini-bullet"></view>
+          <view class="mini-list-text">{{item}}</view>
+        </view>
+      </view>
+    </view>
+  </view>
+
   <view class="card" wx:if="{{result.majorBreakdown.length}}">
-    <view class="section-title">电子信息方向拆解</view>
+    <view class="section-title">{{result.majorProfile ? '专业深度建议' : '方向深度建议'}}</view>
     <view wx:for="{{result.majorBreakdown}}" wx:key="title" class="direction-card">
       <view class="direction-title">{{item.title}}</view>
       <view class="text-block">{{item.content}}</view>
@@ -158,7 +225,9 @@
         <view class="recommendation-meta">
           2025最低分 {{item.min_score}}分
           <text wx:if="{{item.min_rank}}"> · 最低位次 {{item.min_rank}}</text>
+          <text wx:if="{{item.plan_count}}"> · 计划 {{item.plan_count}}人</text>
         </view>
+        <view class="recommendation-meta" wx:if="{{item.year_span}}">覆盖年份：{{item.year_span}}</view>
         <view class="tag-row" wx:if="{{item.decision_tags.length}}">
           <view class="tag-pill" wx:for="{{item.decision_tags}}" wx:key="index">{{item}}</view>
         </view>

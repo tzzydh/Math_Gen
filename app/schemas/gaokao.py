@@ -60,6 +60,29 @@ class GaokaoDirectionCard(BaseModel):
     content: str
 
 
+class GaokaoMajorProfile(BaseModel):
+    major_name: str
+    discipline: str | None = None
+    major_category: str | None = None
+    duration: str | None = None
+    degree: str | None = None
+    science_ratio: str | None = None
+    training_goal: str | None = None
+    overview: str | None = None
+    employment_rate: str | None = None
+    salary_after_5y: str | None = None
+    salary_rank: str | None = None
+    top_jobs: list[str] = Field(default_factory=list)
+    career_paths: list[str] = Field(default_factory=list)
+    sample_schools: list[str] = Field(default_factory=list)
+    catalog_major_code: str | None = None
+    catalog_level: str | None = None
+    similar_majors: list[str] = Field(default_factory=list)
+    strengths: list[str] = Field(default_factory=list)
+    weaknesses: list[str] = Field(default_factory=list)
+    postgraduate_paths: list[str] = Field(default_factory=list)
+
+
 class GaokaoRecommendation(BaseModel):
     school: str
     major: str
@@ -117,6 +140,7 @@ class GaokaoPlanResponse(BaseModel):
     advisor_takeaways: list[str] = Field(default_factory=list)
     school_choice_logic: list[str] = Field(default_factory=list)
     major_observations: list[str] = Field(default_factory=list)
+    major_profile: GaokaoMajorProfile | None = None
     major_breakdown: list[GaokaoDirectionCard] = Field(default_factory=list)
     signature_advice: list[str] = Field(default_factory=list)
     school_pool_note: str | None = None

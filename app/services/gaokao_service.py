@@ -19,6 +19,7 @@ from app.db.models.gaokao_admission_baseline import GaokaoAdmissionBaseline
 from app.db.models.gaokao_control_line import GaokaoControlLine
 from app.db.models.gaokao_score_rank import GaokaoScoreRank
 from app.schemas.gaokao import GaokaoConsultationRequest, GaokaoPlanRequest
+from app.services.gaokao_major_profile import build_major_breakdown, build_major_profile
 from core.openai_compat import call_openai_text_json
 
 
@@ -28,6 +29,7 @@ ROOT_DIR = Path(__file__).resolve().parents[2]
 DIRECTION_POOL_PATH = ROOT_DIR / "data" / "gaokao" / "processed" / "jilin_2025_direction_pool.json"
 LIBRARY_MAJOR_BASELINES_PATH = ROOT_DIR / "data" / "gaokao" / "normalized" / "jilin_library" / "jilin_major_baselines_2022_2025.json"
 LIBRARY_ENROLLMENT_PLANS_PATH = ROOT_DIR / "data" / "gaokao" / "normalized" / "jilin_library" / "jilin_enrollment_plans_2022_2025.json"
+LIBRARY_MAJOR_PROFILES_PATH = ROOT_DIR / "data" / "gaokao" / "normalized" / "jilin_library" / "jilin_major_profiles.json"
 
 TRACK_LABELS = {
     "physics": "物理类",
@@ -245,6 +247,30 @@ class LibraryBaseline:
     year_span: str | None = None
 
 
+@dataclass(frozen=True)
+class MajorProfile:
+    major_name: str
+    discipline: str | None = None
+    major_category: str | None = None
+    duration: str | None = None
+    degree: str | None = None
+    science_ratio: str | None = None
+    training_goal: str | None = None
+    overview: str | None = None
+    employment_rate: str | None = None
+    salary_after_5y: str | None = None
+    salary_rank: str | None = None
+    top_jobs: list[str] | None = None
+    career_paths: list[str] | None = None
+    sample_schools: list[str] | None = None
+    catalog_major_code: str | None = None
+    catalog_level: str | None = None
+    similar_majors: list[str] | None = None
+    strengths: list[str] | None = None
+    weaknesses: list[str] | None = None
+    postgraduate_paths: list[str] | None = None
+
+
 @lru_cache(maxsize=1)
 def load_jilin_library_major_baselines() -> list[dict[str, Any]]:
     if not LIBRARY_MAJOR_BASELINES_PATH.exists():
@@ -261,6 +287,16 @@ def load_jilin_library_plans() -> list[dict[str, Any]]:
         return []
     try:
         return json.loads(LIBRARY_ENROLLMENT_PLANS_PATH.read_text(encoding="utf-8"))
+    except Exception:
+        return []
+
+
+@lru_cache(maxsize=1)
+def load_jilin_major_profiles() -> list[dict[str, Any]]:
+    if not LIBRARY_MAJOR_PROFILES_PATH.exists():
+        return []
+    try:
+        return json.loads(LIBRARY_MAJOR_PROFILES_PATH.read_text(encoding="utf-8"))
     except Exception:
         return []
 
@@ -357,7 +393,17 @@ class GaokaoService:
 
         direction_cards = self._build_direction_cards(payload, track, score, calculated_rank, control_lines)
         direction_advice = [card["content"] for card in direction_cards]
-        major_breakdown = self._build_major_breakdown(payload, track, score, calculated_rank)
+        focused_major_profile = build_major_profile(
+            payload.preferred_majors,
+            recommendations,
+            load_jilin_major_profiles(),
+        )
+        major_breakdown = build_major_breakdown(
+            focused_major_profile,
+            track,
+            score,
+            calculated_rank,
+        )
         signature_advice = self._build_signature_advice(payload, track, score, calculated_rank, recommendations)
         extended_pool = self._build_extended_pool(payload, track, score, calculated_rank, recommendations)
         school_pool_note = self._build_school_pool_note(payload, extended_pool)
@@ -379,6 +425,7 @@ class GaokaoService:
             "advisor_takeaways": advisor_takeaways,
             "school_choice_logic": school_choice_logic,
             "major_observations": major_observations,
+            "major_profile": focused_major_profile,
             "strategy": strategy,
             "risk_notes": risk_notes,
             "execution_checklist": execution_checklist,
@@ -445,6 +492,7 @@ class GaokaoService:
             "advisor_takeaways": advisor_takeaways,
             "school_choice_logic": school_choice_logic,
             "major_observations": major_observations,
+            "major_profile": focused_major_profile,
             "major_breakdown": major_breakdown,
             "signature_advice": signature_advice,
             "school_pool_note": school_pool_note,

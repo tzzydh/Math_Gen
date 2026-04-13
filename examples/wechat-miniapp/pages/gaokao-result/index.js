@@ -87,6 +87,7 @@ Page({
           trackLabel: TRACK_LABELS[result.track] || result.track,
           controlLines,
           bucketGroups: this.groupByBucket(recommendations),
+          majorProfile: result.major_profile || null,
           majorBreakdown: result.major_breakdown || [],
           signatureAdvice: result.signature_advice || [],
           schoolPoolNote: result.school_pool_note || "",

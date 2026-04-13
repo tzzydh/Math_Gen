@@ -12,6 +12,7 @@ from app.schemas.gaokao import (
     GaokaoControlLineItem,
     GaokaoDirectionCard,
     GaokaoExtendedRecommendation,
+    GaokaoMajorProfile,
     GaokaoPlanRequest,
     GaokaoPlanResponse,
     GaokaoPlanSummary,
@@ -94,6 +95,7 @@ def create_gaokao_plan(
             "advisor_takeaways": result["advisor_takeaways"],
             "school_choice_logic": result["school_choice_logic"],
             "major_observations": result["major_observations"],
+            "major_profile": result["major_profile"],
             "major_breakdown": result["major_breakdown"],
             "signature_advice": result["signature_advice"],
             "school_pool_note": result["school_pool_note"],
@@ -216,6 +218,11 @@ def _serialize_plan(plan: GaokaoPlan) -> GaokaoPlanResponse:
         for item in details.get("major_breakdown", [])
         if isinstance(item, dict)
     ]
+    major_profile = (
+        GaokaoMajorProfile(**details["major_profile"])
+        if isinstance(details.get("major_profile"), dict)
+        else None
+    )
     extended_pool = [
         GaokaoExtendedRecommendation(**item)
         for item in details.get("extended_pool", [])
@@ -241,6 +248,7 @@ def _serialize_plan(plan: GaokaoPlan) -> GaokaoPlanResponse:
         advisor_takeaways=details.get("advisor_takeaways", []),
         school_choice_logic=details.get("school_choice_logic", []),
         major_observations=details.get("major_observations", []),
+        major_profile=major_profile,
         major_breakdown=major_breakdown,
         signature_advice=details.get("signature_advice", []),
         school_pool_note=details.get("school_pool_note"),

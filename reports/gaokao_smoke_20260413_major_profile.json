@@ -1,0 +1,26 @@
+[
+  {
+    "case": "tcm_broad",
+    "expected_major": "中医学",
+    "actual_major": "中医学",
+    "recommendation_count": 12,
+    "pdf_size": 20115,
+    "passed": true
+  },
+  {
+    "case": "tcm_exact",
+    "expected_major": "中医学",
+    "actual_major": "中医学",
+    "recommendation_count": 12,
+    "pdf_size": 20268,
+    "passed": true
+  },
+  {
+    "case": "ee",
+    "expected_major": "电子信息工程",
+    "actual_major": "电子信息工程",
+    "recommendation_count": 12,
+    "pdf_size": 23038,
+    "passed": true
+  }
+]

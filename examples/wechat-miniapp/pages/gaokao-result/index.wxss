@@ -215,6 +215,58 @@
   font-size: 22rpx;
 }
 
+.analysis-block {
+  flex: 1;
+  min-width: 280rpx;
+  margin-top: 16rpx;
+  padding: 20rpx;
+  border-radius: 22rpx;
+  border: 1rpx solid #dcfce7;
+}
+
+.positive-block {
+  background: linear-gradient(180deg, #f0fdf4 0%, #ffffff 100%);
+}
+
+.caution-block {
+  background: linear-gradient(180deg, #fff7ed 0%, #ffffff 100%);
+  border-color: #fed7aa;
+}
+
+.analysis-title {
+  margin-bottom: 12rpx;
+  color: #166534;
+  font-size: 26rpx;
+  font-weight: 700;
+}
+
+.mini-list-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 10rpx;
+  margin-top: 10rpx;
+}
+
+.mini-bullet {
+  width: 10rpx;
+  height: 10rpx;
+  margin-top: 12rpx;
+  border-radius: 999rpx;
+  background: #16a34a;
+  flex-shrink: 0;
+}
+
+.caution-mini-bullet {
+  background: #ea580c;
+}
+
+.mini-list-text {
+  flex: 1;
+  color: #475569;
+  font-size: 24rpx;
+  line-height: 1.7;
+}
+
 .major-comment {
   margin-top: 14rpx;
   padding: 18rpx 20rpx;
