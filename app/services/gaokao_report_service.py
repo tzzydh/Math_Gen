@@ -434,9 +434,11 @@ class GaokaoReportService:
                 ]
             )
             bucket = BUCKET_LABELS.get(str(item.get("bucket")), str(item.get("bucket")))
+            ranking_reasons = "、".join(item.get("ranking_reasons") or [])
             bucket_meta = self._join_lines(
                 [
                     bucket,
+                    f"排序分 {item.get('ranking_score') or item.get('fit_score') or '-'}",
                     f"计划 {item.get('plan_count') or '-'} 人",
                     f"覆盖 {item.get('year_span') or '-'}",
                 ]
@@ -444,6 +446,7 @@ class GaokaoReportService:
             reason = self._join_lines(
                 [
                     str(item.get("reason") or ""),
+                    f"排序依据：{ranking_reasons}" if ranking_reasons else "",
                     str(item.get("major_comment") or ""),
                 ]
             )

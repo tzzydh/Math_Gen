@@ -223,6 +223,8 @@
           <text wx:if="{{item.school_level}}"> · {{item.school_level}}</text>
         </view>
         <view class="recommendation-meta">
+          排序分 {{item.ranking_score || item.fit_score}}
+          <text> · </text>
           2025最低分 {{item.min_score}}分
           <text wx:if="{{item.min_rank}}"> · 最低位次 {{item.min_rank}}</text>
           <text wx:if="{{item.plan_count}}"> · 计划 {{item.plan_count}}人</text>
@@ -230,6 +232,9 @@
         <view class="recommendation-meta" wx:if="{{item.year_span}}">覆盖年份：{{item.year_span}}</view>
         <view class="tag-row" wx:if="{{item.decision_tags.length}}">
           <view class="tag-pill" wx:for="{{item.decision_tags}}" wx:key="index">{{item}}</view>
+        </view>
+        <view class="recommendation-meta" wx:if="{{item.rankingReasonText}}">
+          排序依据：{{item.rankingReasonText}}
         </view>
         <view class="text-block">{{item.reason}}</view>
         <view class="major-comment" wx:if="{{item.major_comment}}">{{item.major_comment}}</view>

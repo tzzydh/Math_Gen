@@ -138,7 +138,48 @@ DIRECTION_ALIAS_MAP = {
         "\u82af\u7247",
         "\u5fae\u7535\u5b50",
         "\u6570\u667a",
-    ]
+    ],
+    "teacher_education": [
+        "\u5e08\u8303",
+        "\u6559\u80b2",
+        "\u6559\u5e08",
+        "\u5c0f\u5b66\u6559\u80b2",
+        "\u5b66\u524d\u6559\u80b2",
+        "\u6570\u5b66\u4e0e\u5e94\u7528\u6570\u5b66",
+        "\u6c49\u8bed\u8a00\u6587\u5b66",
+        "\u82f1\u8bed",
+        "\u7269\u7406\u5b66",
+        "\u5316\u5b66",
+        "\u751f\u7269\u79d1\u5b66",
+        "\u5730\u7406\u79d1\u5b66",
+        "\u5386\u53f2\u5b66",
+        "\u601d\u60f3\u653f\u6cbb\u6559\u80b2",
+    ],
+    "traditional_chinese_medicine": [
+        "\u4e2d\u533b",
+        "\u4e2d\u533b\u836f",
+        "\u4e2d\u836f",
+        "\u9488\u7078",
+        "\u5eb7\u590d",
+        "\u63a8\u62ff",
+        "\u4e34\u5e8a\u533b\u5b66",
+    ],
+    "finance_business": [
+        "\u91d1\u878d",
+        "\u4f1a\u8ba1",
+        "\u8d22\u7ecf",
+        "\u5ba1\u8ba1",
+        "\u7ecf\u6d4e",
+        "\u7a0e\u6536",
+        "\u5de5\u5546\u7ba1\u7406",
+    ],
+}
+
+DIRECTION_SCHOOL_HINTS = {
+    "teacher_education": ["\u5e08\u8303", "\u6559\u80b2", "\u6559\u5e08"],
+    "traditional_chinese_medicine": ["\u4e2d\u533b\u836f", "\u533b\u5b66", "\u533b\u836f"],
+    "finance_business": ["\u8d22\u7ecf", "\u91d1\u878d", "\u7ecf\u6d4e"],
+    "electronic_info": ["\u7535\u5b50", "\u4fe1\u606f", "\u90ae\u7535", "\u7535\u5b50\u79d1\u6280", "\u4fe1\u606f\u5de5\u7a0b"],
 }
 
 GAOKAO_GEMINI_ADVISOR_PROMPT = """
@@ -1360,6 +1401,16 @@ class GaokaoService:
                 continue
             match_score, match_reasons, decision_tags = self._score_direction_match(payload, track, baseline)
             fit_score = self._fit_score(bucket, rank_gap, score_gap, match_score)
+            ranking_score, ranking_reasons = self._recommendation_order_score(
+                payload,
+                track,
+                baseline,
+                bucket,
+                rank_gap,
+                score_gap,
+                fit_score,
+                decision_tags,
+            )
             row = {
                 "school": baseline.school,
                 "major": baseline.major,
@@ -1367,6 +1418,8 @@ class GaokaoService:
                 "school_level": baseline.school_level,
                 "bucket": bucket,
                 "fit_score": fit_score,
+                "ranking_score": ranking_score,
+                "ranking_reasons": ranking_reasons,
                 "risk_level": self._risk_level(bucket, rank_gap, score_gap),
                 "reason": self._build_reason(rank, score, baseline, bucket, match_reasons),
                 "major_comment": self._build_major_comment(payload, track, baseline, rank_gap, score_gap),
@@ -1387,8 +1440,9 @@ class GaokaoService:
             grouped[bucket] = sorted(
                 grouped[bucket],
                 key=lambda item: (
-                    -self._decision_priority(item["decision_tags"]),
+                    -item["ranking_score"],
                     -item["fit_score"],
+                    -self._decision_priority(item["decision_tags"]),
                     abs(item["_rank_gap"]),
                     item["min_rank"] or math.inf,
                 ),
@@ -1396,7 +1450,7 @@ class GaokaoService:
 
         selected: list[dict[str, Any]] = []
         used_keys: set[tuple[str, str, str]] = set()
-        for bucket in ("wen", "bao", "chong"):
+        for bucket in ("chong", "wen", "bao"):
             count = DEFAULT_BUCKET_COUNTS[bucket]
             for item in grouped.get(bucket, [])[:count]:
                 key = (item["school"], item["major"], item["bucket"])
@@ -1409,8 +1463,9 @@ class GaokaoService:
             for item in sorted(
                 ranked_rows,
                 key=lambda row: (
-                    -self._decision_priority(row["decision_tags"]),
+                    -row["ranking_score"],
                     -row["fit_score"],
+                    -self._decision_priority(row["decision_tags"]),
                     abs(row["_rank_gap"]),
                     row["min_rank"] or math.inf,
                 ),
@@ -1429,7 +1484,7 @@ class GaokaoService:
         return selected
 
     def _decision_priority(self, tags: list[str]) -> int:
-        primary = {"专业贴合", "职业导向", "城市贴合", "预算友好"}
+        primary = {"专业贴合", "职业导向", "城市贴合", "预算友好", "方向贴合", "院校类型贴合"}
         return sum(1 for tag in tags if tag in primary)
 
     def _build_fallback_recommendations(
@@ -1494,6 +1549,7 @@ class GaokaoService:
         score = 0
         reasons: list[str] = []
         tags: list[str] = []
+        direction_keys = self._detect_direction_keys(payload, track)
         haystack = " ".join(
             [
                 baseline.school,
@@ -1515,10 +1571,11 @@ class GaokaoService:
             score += 20
             reasons.append(f"命中意向专业关键词：{'、'.join(major_hits[:3])}")
             tags.append("专业贴合")
-        elif major_pref and "electronic_info" in self._detect_direction_keys(payload, track):
-            if not any(word in haystack for word in DIRECTION_ALIAS_MAP["electronic_info"]):
-                score -= 24
-                reasons.append("和电子信息主方向关联较弱，更适合作为保底兜底而不是主攻志愿")
+        else:
+            direction_score, direction_reasons, direction_tags = self._direction_match_strength(direction_keys, baseline)
+            score += direction_score
+            reasons.extend(direction_reasons[:2])
+            tags.extend(direction_tags)
 
         city_hits = [token for token in city_pref if token.lower() in baseline.city.lower()]
         if city_hits:
@@ -1544,7 +1601,7 @@ class GaokaoService:
                     break
 
         if track == "physics":
-            physics_focus = DIRECTION_ALIAS_MAP["electronic_info"] if "electronic_info" in self._detect_direction_keys(payload, track) else ["计算机", "电气", "电子", "自动化", "机械", "医学"]
+            physics_focus = DIRECTION_ALIAS_MAP["electronic_info"] if "electronic_info" in direction_keys else ["计算机", "电气", "电子", "自动化", "机械", "医学"]
             if any(word in haystack for word in physics_focus):
                 score += 6
                 tags.append("物理类优势")
@@ -1763,6 +1820,7 @@ class GaokaoService:
         recommendations: list[dict[str, Any]],
     ) -> list[str]:
         logic = [
+            "推荐顺序不是随机排的，而是先分冲、稳、保，再在每一档里按专业方向贴合度、院校类型贴合度、城市偏好、预算友好度和数据完整度综合排序。",
             "第一原则不是盲冲名校，而是先判断这个分数段有没有必要为了学校层级牺牲专业方向。",
             "第二原则是城市资源和行业机会不能忽略，同层次学校里，城市更强的一方往往会在实习和就业上更占便宜。",
             "第三原则是普通家庭更要考虑性价比，学费、读研成本、考公考编路径都是真问题，不是小问题。",
@@ -1926,7 +1984,7 @@ class GaokaoService:
         preferred_majors = payload.preferred_majors or "当前方向"
         return (
             f"这组扩展池不是让你全部填进去，而是专门帮你把“{preferred_majors}”拆成可报池、上限池和补位池。"
-            "主推荐解决梯度，扩展池解决方向。"
+            "主推荐解决梯度，扩展池解决方向。主推荐内部的前后顺序，会优先看专业方向贴合度、院校类型贴合度、城市偏好和数据完整度。"
         )
 
     def _build_extended_pool(
@@ -2022,10 +2080,241 @@ class GaokaoService:
             if part
         )
         keys: list[str] = []
-        if track == "physics":
-            if any(token in text for token in DIRECTION_ALIAS_MAP["electronic_info"]):
-                keys.append("electronic_info")
+        if any(token in text for token in DIRECTION_ALIAS_MAP["teacher_education"]) or any(
+            token in text for token in ["教育编制", "教师编", "老师", "师范生"]
+        ):
+            keys.append("teacher_education")
+        if any(token in text for token in DIRECTION_ALIAS_MAP["traditional_chinese_medicine"]):
+            keys.append("traditional_chinese_medicine")
+        if any(token in text for token in DIRECTION_ALIAS_MAP["finance_business"]):
+            keys.append("finance_business")
+        if track == "physics" and (
+            any(token in text for token in DIRECTION_ALIAS_MAP["electronic_info"])
+            or any(token in text for token in ["工程", "技术", "工科", "高薪就业"])
+        ):
+            keys.append("electronic_info")
         return keys
+
+    def _direction_match_strength(
+        self,
+        direction_keys: list[str],
+        baseline: GaokaoAdmissionBaseline,
+    ) -> tuple[int, list[str], list[str]]:
+        if not direction_keys:
+            return 0, [], []
+
+        haystack = " ".join(
+            [
+                baseline.school,
+                baseline.major,
+                baseline.city,
+                baseline.school_level or "",
+                baseline.major_tags or "",
+                baseline.notes or "",
+            ]
+        )
+        score = 0
+        reasons: list[str] = []
+        tags: list[str] = []
+
+        school_name = baseline.school
+        major_name = baseline.major
+        school_level = baseline.school_level or ""
+        school_hit_map = {
+            key: any(token in school_name for token in DIRECTION_SCHOOL_HINTS.get(key, []))
+            for key in direction_keys
+        }
+
+        teacher_explicit = any(token in major_name for token in ["师范", "教育", "小学教育", "学前教育", "教育技术"])
+        teacher_subject = any(
+            token in major_name
+            for token in ["汉语言文学", "数学与应用数学", "英语", "物理学", "化学", "生物科学", "地理科学", "历史学", "思想政治教育"]
+        )
+        tcm_explicit = any(
+            token in major_name
+            for token in ["中医学", "中药学", "针灸推拿学", "中西医临床医学", "中医康复学", "康复治疗学"]
+        )
+        finance_explicit = any(token in major_name for token in DIRECTION_ALIAS_MAP["finance_business"])
+        electronic_explicit = any(
+            token in major_name
+            for token in [
+                "电子信息",
+                "通信",
+                "自动化",
+                "电气",
+                "物联网",
+                "计算机",
+                "软件",
+                "网络工程",
+                "数据科学",
+                "大数据",
+                "人工智能",
+                "微电子",
+                "集成电路",
+                "智能制造",
+                "机器人工程",
+            ]
+        )
+
+        for key in direction_keys:
+            school_hit = school_hit_map.get(key, False)
+            if key == "teacher_education":
+                if teacher_explicit:
+                    score += 22
+                    reasons.append("师范培养路径直接贴合")
+                    tags.append("方向贴合")
+                elif teacher_subject and school_hit:
+                    score += 16
+                    reasons.append("学科师范路径贴合")
+                    tags.append("方向贴合")
+                    tags.append("院校类型贴合")
+                elif school_hit:
+                    score += 8
+                    reasons.append("师范院校类型贴合")
+                    tags.append("院校类型贴合")
+                else:
+                    score -= 18
+                    reasons.append("和师范教育主路径关联弱")
+            elif key == "traditional_chinese_medicine":
+                if tcm_explicit:
+                    score += 20
+                    reasons.append("中医药专业路径直接贴合")
+                    tags.append("方向贴合")
+                elif school_hit:
+                    score += 8
+                    reasons.append("中医药院校类型贴合")
+                    tags.append("院校类型贴合")
+                else:
+                    score -= 18
+                    reasons.append("和中医药主方向关联弱")
+            elif key == "finance_business":
+                if finance_explicit:
+                    score += 16
+                    reasons.append("财经方向较贴合")
+                    tags.append("方向贴合")
+                elif school_hit:
+                    score += 6
+                    reasons.append("财经院校类型贴合")
+                    tags.append("院校类型贴合")
+                else:
+                    score -= 8
+                    reasons.append("和财经主方向关联一般")
+            elif key == "electronic_info":
+                if electronic_explicit:
+                    score += 16
+                    reasons.append("电子信息方向贴合")
+                    tags.append("方向贴合")
+                elif school_hit and any(token in major_name for token in ["工程", "自动化", "计算机", "电子", "电气", "通信", "人工智能"]):
+                    score += 8
+                    reasons.append("电子信息院校与专业组合较贴合")
+                    tags.append("院校类型贴合")
+                else:
+                    score -= 10
+                    reasons.append("和电子信息主方向关联偏弱")
+        return score, reasons[:3], list(dict.fromkeys(tags))
+
+    def _direction_label(self, key: str) -> str:
+        labels = {
+            "teacher_education": "师范教育",
+            "traditional_chinese_medicine": "中医药",
+            "finance_business": "财经管理",
+            "electronic_info": "电子信息",
+        }
+        return labels.get(key, key)
+
+    def _data_confidence_score(self, baseline: GaokaoAdmissionBaseline) -> tuple[int, list[str]]:
+        score = 0
+        reasons: list[str] = []
+        year_span = str(getattr(baseline, "year_span", "") or "")
+        plan_count = getattr(baseline, "plan_count", None)
+
+        years = [item.strip() for item in year_span.split("-") if item.strip()]
+        if len(years) == 2 and all(item.isdigit() for item in years):
+            span = max(0, int(years[1]) - int(years[0]) + 1)
+            if span >= 4:
+                score += 8
+                reasons.append("近4年数据较完整")
+            elif span >= 2:
+                score += 4
+                reasons.append("近2年有连续数据")
+        elif year_span:
+            score += 2
+            reasons.append("有历史数据锚点")
+
+        if isinstance(plan_count, int):
+            if plan_count >= 20:
+                score += 6
+                reasons.append("计划人数较充足")
+            elif plan_count > 0:
+                score += 3
+                reasons.append("存在明确招生计划")
+        return score, reasons[:2]
+
+    def _recommendation_order_score(
+        self,
+        payload: GaokaoPlanRequest,
+        track: str,
+        baseline: GaokaoAdmissionBaseline,
+        bucket: str,
+        rank_gap: int,
+        score_gap: int,
+        fit_score: int,
+        decision_tags: list[str],
+    ) -> tuple[int, list[str]]:
+        score = 56
+        reasons: list[str] = []
+        direction_keys = self._detect_direction_keys(payload, track)
+
+        direction_score, direction_reasons, direction_tags = self._direction_match_strength(direction_keys, baseline)
+        score += max(-16, min(24, direction_score))
+        reasons.extend(direction_reasons)
+        decision_tags.extend(direction_tags)
+
+        city_hits = [token for token in self._tokenize(payload.preferred_cities) if token.lower() in baseline.city.lower()]
+        if city_hits:
+            score += 8
+            reasons.append("城市偏好直接命中")
+
+        if bucket == "wen":
+            score += 8
+            reasons.append("位次落点更适合作为稳档主力")
+        elif bucket == "bao":
+            score += 5
+            reasons.append("适合作为保底兜底")
+        else:
+            score += 2
+            reasons.append("可作为冲档上限样本")
+
+        if self._is_budget_sensitive(payload.family_budget):
+            level = baseline.school_level or ""
+            if "中外合作" in level or "民办" in level:
+                score -= 12
+                reasons.append("预算敏感，不宜把高学费项目排在前面")
+            else:
+                score += 4
+                reasons.append("预算约束下更友好")
+
+        if abs(rank_gap) <= 5000:
+            score += 8
+            reasons.append("位次贴近，落点更实")
+        elif abs(rank_gap) <= 12000:
+            score += 4
+            reasons.append("位次距离可接受")
+
+        data_score, data_reasons = self._data_confidence_score(baseline)
+        score += data_score
+        reasons.extend(data_reasons)
+
+        if "专业贴合" in decision_tags:
+            score += 6
+        elif "方向贴合" in decision_tags:
+            score += 4
+
+        if score_gap > 35 and bucket == "chong":
+            score -= 8
+            reasons.append("分差偏大，仅建议当作冲档样本")
+
+        return max(40, min(99, score)), list(dict.fromkeys(reasons))[:4]
 
     def _score_extended_pool_item(
         self,
@@ -2219,15 +2508,17 @@ class GaokaoService:
         )
 
     def _pick_anchor_recommendation(self, recommendations: list[dict[str, Any]]) -> dict[str, Any] | None:
-        for bucket in ("wen", "bao", "chong"):
-            for item in recommendations:
-                if item.get("bucket") == bucket and self._has_strong_direction_match(item):
-                    return item
-        for bucket in ("wen", "bao", "chong"):
-            for item in recommendations:
-                if item.get("bucket") == bucket:
-                    return item
-        return recommendations[0] if recommendations else None
+        ordered = sorted(
+            recommendations,
+            key=lambda item: (
+                {"wen": 0, "chong": 1, "bao": 2}.get(str(item.get("bucket")), 9),
+                -(item.get("ranking_score") or item.get("fit_score") or 0),
+            ),
+        )
+        for item in ordered:
+            if self._has_strong_direction_match(item):
+                return item
+        return ordered[0] if ordered else None
 
     def _recommendation_focus(self, recommendations: list[dict[str, Any]]) -> str:
         buckets = {item.get("bucket") for item in recommendations}
@@ -2254,4 +2545,4 @@ class GaokaoService:
 
     def _has_strong_direction_match(self, recommendation: dict[str, Any]) -> bool:
         tags = set(recommendation.get("decision_tags") or [])
-        return bool(tags.intersection({"专业贴合", "职业导向"}))
+        return bool(tags.intersection({"专业贴合", "职业导向", "方向贴合", "院校类型贴合"}))

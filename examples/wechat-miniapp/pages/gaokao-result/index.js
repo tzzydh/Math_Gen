@@ -74,6 +74,7 @@ Page({
       const recommendations = (result.recommendations || []).map((item) => ({
         ...item,
         bucketLabel: BUCKET_LABELS[item.bucket] || item.bucket,
+        rankingReasonText: (item.ranking_reasons || []).join("、"),
       }));
       const controlLines = (result.control_lines || []).map((item) => ({
         ...item,

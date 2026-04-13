@@ -1,0 +1,128 @@
+{
+  "teacher": {
+    "top3": [
+      {
+        "school": "陕西师范大学",
+        "major": "物理学",
+        "bucket": "chong",
+        "ranking_score": 97,
+        "ranking_reasons": [
+          "学科师范路径贴合",
+          "可作为冲档上限样本",
+          "预算约束下更友好",
+          "位次贴近，落点更实"
+        ]
+      },
+      {
+        "school": "东北师范大学",
+        "major": "地理科学",
+        "bucket": "chong",
+        "ranking_score": 97,
+        "ranking_reasons": [
+          "学科师范路径贴合",
+          "可作为冲档上限样本",
+          "预算约束下更友好",
+          "位次贴近，落点更实"
+        ]
+      },
+      {
+        "school": "陕西师范大学",
+        "major": "生物科学",
+        "bucket": "chong",
+        "ranking_score": 97,
+        "ranking_reasons": [
+          "学科师范路径贴合",
+          "可作为冲档上限样本",
+          "预算约束下更友好",
+          "位次贴近，落点更实"
+        ]
+      }
+    ],
+    "pdf_has_ranking_basis": true,
+    "pdf_has_major_title": true
+  },
+  "tcm": {
+    "top3": [
+      {
+        "school": "长春中医药大学",
+        "major": "中医学",
+        "bucket": "chong",
+        "ranking_score": 99,
+        "ranking_reasons": [
+          "中医药专业路径直接贴合",
+          "城市偏好直接命中",
+          "可作为冲档上限样本",
+          "预算约束下更友好"
+        ]
+      },
+      {
+        "school": "广州中医药大学",
+        "major": "针灸推拿学",
+        "bucket": "chong",
+        "ranking_score": 97,
+        "ranking_reasons": [
+          "中医药专业路径直接贴合",
+          "可作为冲档上限样本",
+          "预算约束下更友好",
+          "位次距离可接受"
+        ]
+      },
+      {
+        "school": "天津医科大学",
+        "major": "康复治疗学",
+        "bucket": "chong",
+        "ranking_score": 95,
+        "ranking_reasons": [
+          "中医药专业路径直接贴合",
+          "可作为冲档上限样本",
+          "预算约束下更友好",
+          "位次距离可接受"
+        ]
+      }
+    ],
+    "pdf_has_ranking_basis": true,
+    "pdf_has_major_title": true
+  },
+  "electronic": {
+    "top3": [
+      {
+        "school": "长春工程学院",
+        "major": "电子信息工程",
+        "bucket": "chong",
+        "ranking_score": 99,
+        "ranking_reasons": [
+          "电子信息方向贴合",
+          "城市偏好直接命中",
+          "可作为冲档上限样本",
+          "位次距离可接受"
+        ]
+      },
+      {
+        "school": "长春大学",
+        "major": "智能制造工程",
+        "bucket": "chong",
+        "ranking_score": 98,
+        "ranking_reasons": [
+          "电子信息方向贴合",
+          "城市偏好直接命中",
+          "可作为冲档上限样本",
+          "位次距离可接受"
+        ]
+      },
+      {
+        "school": "吉林建筑大学",
+        "major": "电气工程及其自动化",
+        "bucket": "chong",
+        "ranking_score": 98,
+        "ranking_reasons": [
+          "电子信息方向贴合",
+          "城市偏好直接命中",
+          "可作为冲档上限样本",
+          "位次距离可接受"
+        ]
+      }
+    ],
+    "pdf_has_ranking_basis": true,
+    "pdf_has_major_title": true
+  }
+}

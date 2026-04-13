@@ -90,6 +90,8 @@ class GaokaoRecommendation(BaseModel):
     school_level: str | None = None
     bucket: str
     fit_score: int
+    ranking_score: int | None = None
+    ranking_reasons: list[str] = Field(default_factory=list)
     risk_level: str
     reason: str
     major_comment: str | None = None
