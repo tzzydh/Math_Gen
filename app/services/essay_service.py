@@ -217,6 +217,33 @@ class EssayService:
             title=title or "(untitled)",
             text=text,
         )
+        if subject == "chinese":
+            prompt += """
+
+补充要求：
+1. 这次不是基础纠错，而是深度润色。
+2. 请把作文提升到“高分考场作文”的完成度，而不是只改几个词。
+3. 在不改变原文核心事件、立意和情感走向的前提下，主动优化：
+   - 开头吸引力
+   - 段落过渡
+   - 细节描写
+   - 心理描写
+   - 环境描写
+   - 结尾升华
+4. 可以适度补强动作、神态、声音、光影、触感等细节，让文章更有画面感。
+5. 语言要更细腻、更流畅、更有文采，但不能空泛堆砌辞藻。
+6. corrected_text 必须明显强于原文，篇章完整度和描写层次都要提升。
+""".strip()
+        elif subject == "english":
+            prompt += """
+
+Additional requirements:
+1. This should be a deep polish, not only minor wording fixes.
+2. Strengthen the hook, transitions, details, sentence rhythm, and ending.
+3. Add vivid but natural description when helpful.
+4. Preserve the original topic, events, and intended meaning.
+5. The revised essay should read like a strong exam essay, not a stiff textbook answer.
+""".strip()
         timeout = max(settings.essay_review_timeout_seconds, settings.ocr_timeout_seconds, 120)
         attempts = max(settings.essay_retry_count, 1)
         last_error: Exception | None = None
