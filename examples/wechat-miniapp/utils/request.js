@@ -14,14 +14,31 @@ function sanitizeApiBaseUrl(url) {
   return url;
 }
 
+function normalizeErrorPayload(res) {
+  if (!res) return { detail: "请求失败" };
+  if (res.statusCode === 401) {
+    wx.removeStorageSync("access_token");
+    wx.removeStorageSync("user_profile");
+  }
+  if (res.data && typeof res.data === "object") {
+    return res.data;
+  }
+  if (typeof res.data === "string" && res.data.trim()) {
+    return { detail: res.data.trim(), statusCode: res.statusCode };
+  }
+  return {
+    detail: res.errMsg || `请求失败(${res.statusCode || "unknown"})`,
+    statusCode: res.statusCode,
+  };
+}
+
 function request({ url, method = "GET", data, token, timeout = 60000 }) {
   return new Promise((resolve, reject) => {
     const apiBaseUrl = sanitizeApiBaseUrl(getApiBaseUrl());
-    const normalizedUrl = String(url || "")
-      .replace(apiBaseUrl, "")
-      .trim();
+    const normalizedUrl = String(url || "").replace(apiBaseUrl, "").trim();
     const fullUrl = buildApiUrl(normalizedUrl);
     console.log("wx.request ->", fullUrl);
+
     wx.request({
       url: fullUrl,
       method,
@@ -37,9 +54,11 @@ function request({ url, method = "GET", data, token, timeout = 60000 }) {
           resolve(res.data);
           return;
         }
-        reject(res.data || res);
+        reject(normalizeErrorPayload(res));
       },
-      fail: reject,
+      fail(error) {
+        reject(error);
+      },
     });
   });
 }

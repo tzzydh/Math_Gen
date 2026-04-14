@@ -41,7 +41,6 @@ const STEP_OPTIONS = [
 function getErrorMessage(error, fallback) {
   if (!error) return fallback;
   if (typeof error === "string") return error;
-  if (error.errMsg && String(error.errMsg).trim() === "request:ok") return fallback;
   if (error.detail) return error.detail;
   if (error.errMsg) return error.errMsg;
   return fallback;
@@ -51,6 +50,17 @@ function normalizeRankValue(value) {
   const text = String(value || "").trim();
   const matched = text.match(/\d+/);
   return matched ? matched[0] : "";
+}
+
+function showLoading(title) {
+  wx.showLoading({ title, mask: true });
+  return true;
+}
+
+function hideLoadingIfNeeded(flag) {
+  if (flag) {
+    wx.hideLoading();
+  }
 }
 
 Page({
@@ -80,6 +90,14 @@ Page({
     planningError: "",
     consulting: false,
     creatingPlan: false,
+  },
+
+  onShow() {
+    const token = wx.getStorageSync("access_token") || "";
+    this.setData({
+      token,
+      province: DEFAULT_PROVINCE,
+    });
   },
 
   getFieldValue(field) {
@@ -123,14 +141,6 @@ Page({
     };
   },
 
-  onShow() {
-    const token = wx.getStorageSync("access_token") || "";
-    this.setData({
-      token,
-      province: DEFAULT_PROVINCE,
-    });
-  },
-
   handleModuleTap(event) {
     const moduleKey = event.currentTarget.dataset.module;
     if (!moduleKey) return;
@@ -168,7 +178,8 @@ Page({
     this.setData({
       advisorProvider: provider,
       advisorModel: "",
-      advisorModelOptions: ADVISOR_MODEL_OPTIONS_BY_PROVIDER[provider] || ADVISOR_MODEL_OPTIONS_BY_PROVIDER.gemini,
+      advisorModelOptions:
+        ADVISOR_MODEL_OPTIONS_BY_PROVIDER[provider] || ADVISOR_MODEL_OPTIONS_BY_PROVIDER.gemini,
     });
   },
 
@@ -187,10 +198,6 @@ Page({
       (question) => question.required && !String(question.currentValue || "").trim()
     );
     if (unanswered.length > 0) {
-      if (loadingShown) {
-        wx.hideLoading();
-        loadingShown = false;
-      }
       wx.showToast({
         title: `还有 ${unanswered.length} 个必答项未完成`,
         icon: "none",
@@ -219,6 +226,13 @@ Page({
     };
   },
 
+  handleUnauthorized() {
+    wx.removeStorageSync("access_token");
+    wx.removeStorageSync("user_profile");
+    this.setData({ token: "" });
+    wx.showToast({ title: "登录已失效，请重新登录", icon: "none" });
+  },
+
   async handleStartConsultation() {
     if (!this.data.token) {
       wx.showToast({ title: "请先登录", icon: "none" });
@@ -237,8 +251,7 @@ Page({
     });
 
     try {
-      wx.showLoading({ title: "顾问问诊中..." });
-      loadingShown = true;
+      loadingShown = showLoading("顾问问诊中...");
       const result = await request({
         url: "/gaokao/consultation",
         method: "POST",
@@ -256,6 +269,9 @@ Page({
         consultStatus: result.readiness,
         activeModule: result.readiness === "ready" ? "final" : "consult",
       });
+
+      hideLoadingIfNeeded(loadingShown);
+      loadingShown = false;
       wx.showToast({
         title: result.readiness === "ready" ? "可以直接生成方案" : "已生成顾问追问",
         icon: "success",
@@ -263,6 +279,9 @@ Page({
     } catch (error) {
       const message = getErrorMessage(error, "问诊失败");
       console.error(error);
+      if (message.includes("invalid access token")) {
+        this.handleUnauthorized();
+      }
       this.setData({
         consultStatus: "failed",
         consultError: message,
@@ -271,9 +290,7 @@ Page({
       wx.showToast({ title: message, icon: "none" });
     } finally {
       this.setData({ consulting: false });
-      if (loadingShown) {
-        wx.hideLoading();
-      }
+      hideLoadingIfNeeded(loadingShown);
     }
   },
 
@@ -298,8 +315,7 @@ Page({
     });
 
     try {
-      wx.showLoading({ title: "生成方案中..." });
-      loadingShown = true;
+      loadingShown = showLoading("生成方案中...");
       const result = await request({
         url: "/gaokao/plan",
         method: "POST",
@@ -309,16 +325,17 @@ Page({
       });
 
       this.setData({ planningStatus: "completed" });
-      if (loadingShown) {
-        wx.hideLoading();
-        loadingShown = false;
-      }
+      hideLoadingIfNeeded(loadingShown);
+      loadingShown = false;
       wx.navigateTo({
         url: `/pages/gaokao-result/index?planId=${result.plan_id}`,
       });
     } catch (error) {
       const message = getErrorMessage(error, "生成失败");
       console.error(error);
+      if (message.includes("invalid access token")) {
+        this.handleUnauthorized();
+      }
       this.setData({
         planningStatus: "failed",
         planningError: message,
@@ -327,9 +344,7 @@ Page({
       wx.showToast({ title: message, icon: "none" });
     } finally {
       this.setData({ creatingPlan: false });
-      if (loadingShown) {
-        wx.hideLoading();
-      }
+      hideLoadingIfNeeded(loadingShown);
     }
   },
 });
